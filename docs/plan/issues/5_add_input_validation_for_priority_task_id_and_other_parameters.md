@@ -1,7 +1,7 @@
 # GitHub Issue #5: Add input validation for priority, task_id, and other parameters
 
 **Issue:** [#5](https://github.com/denhamparry/todoist-mcp/issues/5)
-**Status:** Open
+**Status:** Complete
 **Labels:** enhancement
 **Priority:** HIGH
 **Date:** 2025-11-27
