@@ -1,6 +1,6 @@
 # PR #11: Code Review Feedback - Add comprehensive unit tests
 
-**PR:** #11 **Status:** In Progress **Created:** 2025-11-27
+**PR:** #11 **Status:** Complete **Created:** 2025-11-27 **Completed:** 2025-11-27
 
 ## PR Summary
 
@@ -88,12 +88,50 @@ No low priority items identified.
 
 ## Success Criteria
 
-- [ ] All test assertions use consistent style
-- [ ] All tests use `create_async_gen_mock()` helper consistently
-- [ ] Priority mapping is documented with clear comments
-- [ ] All tests pass (25/25)
-- [ ] Coverage remains >= 95%
-- [ ] Pre-commit hooks pass
+- [x] All test assertions use consistent style
+- [x] All tests use `create_async_gen_mock()` helper consistently
+- [x] Priority mapping is documented with clear comments
+- [x] All tests pass (25/25)
+- [x] Coverage remains >= 95%
+- [x] Pre-commit hooks pass
+
+## Implementation Notes
+
+**Completed:** 2025-11-27
+
+### Changes Made
+
+1. **Standardized test assertions**:
+   - Added clarifying comments for all assertions
+   - Used exact match (==) for predictable strings
+   - Used partial match (in) for flexible content
+   - Applied consistently across all 25 tests
+
+2. **Refactored async generator mocking**:
+   - Updated `test_todoist_get_tasks_success` to use `create_async_gen_mock()`
+   - Removed manual async generator creation
+   - All tests now use the helper function consistently
+
+3. **Documented priority mapping**:
+   - Added comprehensive comment block in server.py:58-62
+   - Explains Todoist's 1-4 priority scale
+   - Maps API values to user-facing labels (P1/P2/P3)
+   - Clarifies that priority 1 is default and not shown
+
+### Test Results
+
+All tests pass with maintained coverage:
+
+- 25/25 tests passing
+- 95.19% code coverage
+- All pre-commit hooks validated
+
+### Benefits
+
+- Improved code readability and maintainability
+- Clearer test intent through assertion comments
+- Better documentation for future contributors
+- Consistent patterns across test suite
 
 ## Related Files
 
