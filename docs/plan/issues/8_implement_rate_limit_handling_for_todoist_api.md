@@ -17,6 +17,7 @@ The Todoist API has rate limits (~450 requests per 15 minutes for standard plans
 ### Current Behavior
 
 When a rate limit (HTTP 429) is hit:
+
 - Generic exception is caught and returned as `"Error fetching tasks: {str(e)}"`
 - No specific detection or handling of 429 errors
 - No retry logic with exponential backoff
@@ -26,6 +27,7 @@ When a rate limit (HTTP 429) is hit:
 ### Expected Behavior
 
 When rate limits are exceeded:
+
 - Clear, user-friendly error messages explaining the rate limit
 - Optional retry logic with exponential backoff
 - Rate limit events logged for monitoring
@@ -49,18 +51,21 @@ except Exception as e:
 ```
 
 Current error handling (lines 192-198, 258-263, 321-326, 355-360, 389-394, 426-428, 458-460):
+
 - Generic `Exception` catch-all
 - No specific rate limit detection
 - No retry logic
 - Logs errors but doesn't distinguish rate limit errors
 
 **docs/api.md** - Documentation mentions rate limits (line 323-329):
+
 - States standard plans have ~450 requests per 15 minutes
 - Mentions premium plans have higher limits
 - Says "server handles rate limiting automatically" (currently false)
 - Lists rate limiting as a common error scenario
 
 **tests/test_server.py** - No tests for rate limit handling:
+
 - No test cases for 429 errors
 - No validation of rate limit error messages
 - No tests for retry logic
@@ -68,6 +73,7 @@ Current error handling (lines 192-198, 258-263, 321-326, 355-360, 389-394, 426-4
 ### Related Context
 
 **Todoist API Rate Limit Details:**
+
 - Standard plans: ~450 requests per 15 minutes
 - Premium plans: Higher limits
 - Response headers include:
@@ -76,6 +82,7 @@ Current error handling (lines 192-198, 258-263, 321-326, 355-360, 389-394, 426-4
   - `Retry-After` - Seconds to wait before retrying (on 429 responses)
 
 **todoist-api-python Library:**
+
 - Does not have built-in automatic backoff for rate limits ([GitHub Issue #38](https://github.com/Doist/todoist-api-python/issues/38))
 - Raises exceptions on API errors (including 429)
 - Exception likely contains response object with status code and headers
@@ -93,6 +100,7 @@ Implement a multi-layered approach to rate limit handling:
 5. **Documentation Layer**: Update documentation with rate limit information
 
 **Rationale:**
+
 - Layered approach allows gradual implementation and testing
 - User-friendly messages improve UX immediately (low effort, high value)
 - Optional retry logic provides flexibility (can be enabled/disabled)
@@ -100,6 +108,7 @@ Implement a multi-layered approach to rate limit handling:
 - Documentation helps users understand and avoid rate limits
 
 **Trade-offs Considered:**
+
 - **Automatic retry vs. immediate error**: Chose configurable retry to give users control
 - **Retry count**: Start conservative (2-3 retries) to avoid long wait times
 - **Exponential backoff vs. fixed delay**: Chose exponential to reduce server load
@@ -242,9 +251,11 @@ try:
 **File:** `src/todoist_mcp/server.py`
 
 **Changes:**
+
 - Add `is_rate_limit_error()` helper function after validation helpers (after line 130)
 
 **Code:**
+
 ```python
 def is_rate_limit_error(error: Exception) -> bool:
     """Check if an exception is a rate limit error (HTTP 429).
@@ -270,6 +281,7 @@ def is_rate_limit_error(error: Exception) -> bool:
 ```
 
 **Testing:**
+
 ```python
 # In test file
 def test_is_rate_limit_error_with_429():
@@ -290,10 +302,12 @@ def test_is_rate_limit_error_with_other_error():
 **File:** `src/todoist_mcp/server.py`
 
 **Changes:**
+
 - Update exception handling in `todoist_get_tasks` (lines 192-198)
 - Add specific check for rate limit errors before generic error handling
 
 **Code:**
+
 ```python
 except Exception as e:
     # Check for rate limit error and provide helpful message
@@ -318,6 +332,7 @@ except Exception as e:
 ```
 
 **Testing:**
+
 ```python
 @pytest.mark.asyncio
 async def test_todoist_get_tasks_rate_limit_error(mock_api_token, monkeypatch):
@@ -345,6 +360,7 @@ async def test_todoist_get_tasks_rate_limit_error(mock_api_token, monkeypatch):
 **File:** `src/todoist_mcp/server.py`
 
 **Changes:**
+
 - Update exception handling in all remaining tool functions:
   - `todoist_create_task` (lines 258-263)
   - `todoist_update_task` (lines 321-326)
@@ -354,6 +370,7 @@ async def test_todoist_get_tasks_rate_limit_error(mock_api_token, monkeypatch):
   - `todoist_get_labels` (lines 458-460)
 
 **Code Pattern (same for all tools):**
+
 ```python
 except Exception as e:
     # Check for rate limit error
@@ -377,7 +394,9 @@ except Exception as e:
 ```
 
 **Testing:**
+
 Add rate limit test for each tool:
+
 ```python
 @pytest.mark.asyncio
 async def test_todoist_create_task_rate_limit(mock_api_token, monkeypatch):
@@ -402,10 +421,12 @@ async def test_todoist_create_task_rate_limit(mock_api_token, monkeypatch):
 **File:** `src/todoist_mcp/server.py`
 
 **Changes:**
+
 - Add configuration for retry logic after imports (after line 26)
 - Add `retry_with_backoff` helper function after `is_rate_limit_error`
 
 **Configuration Code:**
+
 ```python
 # Rate limit retry configuration
 ENABLE_RETRY = os.getenv("TODOIST_ENABLE_RETRY", "false").lower() == "true"
@@ -419,6 +440,7 @@ logger.info(
 ```
 
 **Helper Function Code:**
+
 ```python
 async def retry_with_backoff(func, max_retries: int, base_delay: float, *args, **kwargs):
     """Retry async function with exponential backoff on rate limit errors.
@@ -458,6 +480,7 @@ async def retry_with_backoff(func, max_retries: int, base_delay: float, *args, *
 ```
 
 **Testing:**
+
 ```python
 @pytest.mark.asyncio
 async def test_retry_with_backoff_success_after_retry(mock_api_token):
@@ -511,11 +534,13 @@ async def test_retry_with_backoff_non_rate_limit_error(mock_api_token):
 **File:** `docs/api.md`
 
 **Changes:**
+
 - Update rate limits section (lines 323-329) to reflect actual implementation
 - Add section about rate limit error handling
 - Document retry configuration options
 
 **Updated Content:**
+
 ```markdown
 ## Rate Limits
 
@@ -535,11 +560,13 @@ When rate limits are exceeded, the server will:
 
 1. **Detect** HTTP 429 errors automatically
 2. **Return** clear error message:
-   ```
+
+   ```text
    Error: Todoist API rate limit exceeded.
    Please wait a few minutes and try again.
    (Standard plans: ~450 requests per 15 minutes)
    ```
+
 3. **Log** rate limit events for monitoring
 4. **Optionally retry** with exponential backoff (if enabled)
 
@@ -560,6 +587,7 @@ TODOIST_RETRY_BASE_DELAY=2.0
 ```
 
 **MCP Configuration:**
+
 ```json
 {
   "mcpServers": {
@@ -583,14 +611,15 @@ TODOIST_RETRY_BASE_DELAY=2.0
 3. **Monitor rate limit headers** to track usage
 4. **Enable retry logic** for production use
 5. **Space out requests** to avoid hitting limits
-```
 
 **File:** `README.md`
 
 **Changes:**
+
 - Add note about rate limit handling in Features section (after line 13)
 
 **Code:**
+
 ```markdown
 ## Features
 
@@ -607,9 +636,11 @@ TODOIST_RETRY_BASE_DELAY=2.0
 **File:** `tests/test_server.py`
 
 **Changes:**
+
 - Add test section for rate limit handling (after line 757)
 
 **Code:**
+
 ```python
 # Rate limit handling tests
 
@@ -885,6 +916,7 @@ async def test_retry_with_backoff_exponential_delay(mock_api_token, monkeypatch)
 ### Unit Testing
 
 **Rate Limit Detection Tests:**
+
 1. Test `is_rate_limit_error()` with various error formats:
    - "429" in error message
    - "rate limit" keyword
@@ -892,28 +924,35 @@ async def test_retry_with_backoff_exponential_delay(mock_api_token, monkeypatch)
    - Non-rate-limit errors return False
 
 **Error Handling Tests:**
+
 2. Test each tool function with rate limit error:
-   - Mock API to raise 429 error
-   - Verify clear error message returned
-   - Verify "wait a few minutes" guidance included
-   - Verify rate limit info (450 requests) included
+
+- Mock API to raise 429 error
+- Verify clear error message returned
+- Verify "wait a few minutes" guidance included
+- Verify rate limit info (450 requests) included
 
 **Logging Tests:**
+
 3. Test rate limit errors log at WARNING level:
-   - Verify warning message logged
-   - Verify tool name included in log
-   - Verify parameters included in log
+
+- Verify warning message logged
+- Verify tool name included in log
+- Verify parameters included in log
 
 **Retry Logic Tests (Optional):**
+
 4. Test `retry_with_backoff()` helper:
-   - Succeeds after transient rate limit error
-   - Fails after max retries exceeded
-   - Doesn't retry non-rate-limit errors
-   - Uses exponential backoff (2s, 4s, 8s, etc.)
+
+- Succeeds after transient rate limit error
+- Fails after max retries exceeded
+- Doesn't retry non-rate-limit errors
+- Uses exponential backoff (2s, 4s, 8s, etc.)
 
 ### Integration Testing
 
 **Manual Testing:**
+
 1. Test with actual Todoist API:
    - Make rapid requests to trigger rate limit
    - Verify error message clarity
@@ -927,6 +966,7 @@ async def test_retry_with_backoff_exponential_delay(mock_api_token, monkeypatch)
 ### Regression Testing
 
 **Existing Functionality:**
+
 1. Run full test suite to ensure no regressions
 2. Verify all existing tools still work correctly
 3. Verify error handling for non-rate-limit errors unchanged
@@ -1049,15 +1089,18 @@ None - Nice to have feature
 ### Implementation Priority
 
 **High Priority (MVP):**
+
 - Step 1: Rate limit detection helper
 - Step 2-3: Update error handling in all tools
 - Step 6: Add basic tests
 
 **Medium Priority (Nice to have):**
+
 - Step 4: Optional retry logic
 - Step 6: Comprehensive retry tests
 
 **Low Priority (Future):**
+
 - Step 5: Documentation updates
 - Advanced features (read Retry-After header, request throttling)
 
