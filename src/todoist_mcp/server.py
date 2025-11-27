@@ -4,7 +4,9 @@ An MCP server that enables AI agents to manage Todoist tasks through natural
 language commands.
 """
 
+import logging
 import os
+import sys
 from typing import List, Optional
 
 from dotenv import load_dotenv
@@ -14,15 +16,28 @@ from todoist_api_python.api_async import TodoistAPIAsync
 # Load environment variables
 load_dotenv()
 
+# Configure logging
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stderr,  # MCP protocol uses stdout, so log to stderr
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+logger = logging.getLogger("todoist-mcp")
+
 # Initialize MCP server
 mcp = FastMCP(name="todoist-mcp")
 
 # Initialize Todoist API client
 API_TOKEN = os.getenv("TODOIST_API_TOKEN")
 if not API_TOKEN:
+    logger.critical("TODOIST_API_TOKEN environment variable not set")
     raise ValueError("TODOIST_API_TOKEN environment variable not set")
 
 todoist = TodoistAPIAsync(API_TOKEN)
+logger.info(f"Todoist MCP Server initialized with log level: {LOG_LEVEL}")
 
 
 # Validation helper functions
@@ -128,18 +143,29 @@ async def todoist_get_tasks(
     Returns:
         Formatted list of tasks with IDs, content, due dates, and priorities
     """
+    logger.info(
+        f"Tool called: todoist_get_tasks - "
+        f"project_id={project_id!r} label={label!r}"
+    )
+
     # Validation
     if error := validate_project_id(project_id):
+        logger.warning(f"Validation failed in todoist_get_tasks: {error}")
         return error
     if label is not None and (not label or not label.strip()):
-        return "Error: Label filter cannot be empty"
+        error_msg = "Error: Label filter cannot be empty"
+        logger.warning(f"Validation failed in todoist_get_tasks: {error_msg}")
+        return error_msg
 
     try:
+        logger.debug("Fetching tasks from Todoist API")
         # Get the async generator and consume it to get the list of tasks
         tasks = []
         task_generator = await todoist.get_tasks(project_id=project_id, label=label)
         async for task_batch in task_generator:
             tasks.extend(task_batch)
+
+        logger.info(f"Retrieved {len(tasks)} task(s) from Todoist")
 
         if not tasks:
             return "No tasks found."
@@ -164,6 +190,11 @@ async def todoist_get_tasks(
 
         return result
     except Exception as e:
+        logger.error(
+            f"Failed to get tasks - project_id={project_id!r} label={label!r} "
+            f"error={str(e)}",
+            exc_info=True,
+        )
         return f"Error fetching tasks: {str(e)}"
 
 
@@ -189,17 +220,28 @@ async def todoist_create_task(
     Returns:
         Success message with task ID
     """
+    logger.info(
+        f"Tool called: todoist_create_task - "
+        f"content={content!r} priority={priority} due_string={due_string!r} "
+        f"project_id={project_id!r} labels={labels}"
+    )
+
     # Validation
     if error := validate_non_empty_string(content, "Content"):
+        logger.warning(f"Validation failed in todoist_create_task: {error}")
         return error
     if error := validate_priority(priority):
+        logger.warning(f"Validation failed in todoist_create_task: {error}")
         return error
     if error := validate_project_id(project_id):
+        logger.warning(f"Validation failed in todoist_create_task: {error}")
         return error
     if error := validate_labels(labels):
+        logger.warning(f"Validation failed in todoist_create_task: {error}")
         return error
 
     try:
+        logger.debug(f"Creating task via Todoist API - content={content!r}")
         task = await todoist.add_task(
             content=content,
             description=description,
@@ -208,8 +250,16 @@ async def todoist_create_task(
             priority=priority,
             labels=labels,
         )
+        logger.info(
+            f"Task created successfully - id={task.id} content={task.content!r} "
+            f"priority={task.priority}"
+        )
         return f"✓ Task created: {task.content} (ID: {task.id})"
     except Exception as e:
+        logger.error(
+            f"Failed to create task - content={content!r} error={str(e)}",
+            exc_info=True,
+        )
         return f"Error creating task: {str(e)}"
 
 
@@ -235,15 +285,25 @@ async def todoist_update_task(
     Returns:
         Success message
     """
+    logger.info(
+        f"Tool called: todoist_update_task - "
+        f"task_id={task_id!r} content={content!r} priority={priority} "
+        f"due_string={due_string!r} labels={labels}"
+    )
+
     # Validation
     if error := validate_task_id(task_id):
+        logger.warning(f"Validation failed in todoist_update_task: {error}")
         return error
     if error := validate_priority(priority):
+        logger.warning(f"Validation failed in todoist_update_task: {error}")
         return error
     if error := validate_labels(labels):
+        logger.warning(f"Validation failed in todoist_update_task: {error}")
         return error
 
     try:
+        logger.debug(f"Updating task via Todoist API - task_id={task_id!r}")
         success = await todoist.update_task(
             task_id=task_id,
             content=content,
@@ -253,10 +313,16 @@ async def todoist_update_task(
             labels=labels,
         )
         if success:
+            logger.info(f"Task updated successfully - task_id={task_id!r}")
             return f"✓ Task {task_id} updated successfully"
         else:
+            logger.warning(f"Failed to update task - task_id={task_id!r}")
             return f"Failed to update task {task_id}"
     except Exception as e:
+        logger.error(
+            f"Failed to update task - task_id={task_id!r} error={str(e)}",
+            exc_info=True,
+        )
         return f"Error updating task: {str(e)}"
 
 
@@ -270,17 +336,27 @@ async def todoist_complete_task(task_id: str) -> str:
     Returns:
         Success message
     """
+    logger.info(f"Tool called: todoist_complete_task - task_id={task_id!r}")
+
     # Validation
     if error := validate_task_id(task_id):
+        logger.warning(f"Validation failed in todoist_complete_task: {error}")
         return error
 
     try:
+        logger.debug(f"Completing task via Todoist API - task_id={task_id!r}")
         success = await todoist.complete_task(task_id=task_id)
         if success:
+            logger.info(f"Task completed successfully - task_id={task_id!r}")
             return f"✓ Task {task_id} marked as complete"
         else:
+            logger.warning(f"Failed to complete task - task_id={task_id!r}")
             return f"Failed to complete task {task_id}"
     except Exception as e:
+        logger.error(
+            f"Failed to complete task - task_id={task_id!r} error={str(e)}",
+            exc_info=True,
+        )
         return f"Error completing task: {str(e)}"
 
 
@@ -294,17 +370,27 @@ async def todoist_delete_task(task_id: str) -> str:
     Returns:
         Success message
     """
+    logger.info(f"Tool called: todoist_delete_task - task_id={task_id!r}")
+
     # Validation
     if error := validate_task_id(task_id):
+        logger.warning(f"Validation failed in todoist_delete_task: {error}")
         return error
 
     try:
+        logger.debug(f"Deleting task via Todoist API - task_id={task_id!r}")
         success = await todoist.delete_task(task_id=task_id)
         if success:
+            logger.info(f"Task deleted successfully - task_id={task_id!r}")
             return f"✓ Task {task_id} deleted"
         else:
+            logger.warning(f"Failed to delete task - task_id={task_id!r}")
             return f"Failed to delete task {task_id}"
     except Exception as e:
+        logger.error(
+            f"Failed to delete task - task_id={task_id!r} error={str(e)}",
+            exc_info=True,
+        )
         return f"Error deleting task: {str(e)}"
 
 
@@ -315,12 +401,17 @@ async def todoist_get_projects() -> str:
     Returns:
         Formatted list of projects with IDs and names
     """
+    logger.info("Tool called: todoist_get_projects")
+
     try:
+        logger.debug("Fetching projects from Todoist API")
         # Get the async generator and consume it to get the list of projects
         projects = []
         project_generator = await todoist.get_projects()
         async for project_batch in project_generator:
             projects.extend(project_batch)
+
+        logger.info(f"Retrieved {len(projects)} project(s) from Todoist")
 
         if not projects:
             return "No projects found."
@@ -333,6 +424,7 @@ async def todoist_get_projects() -> str:
 
         return result
     except Exception as e:
+        logger.error(f"Failed to get projects - error={str(e)}", exc_info=True)
         return f"Error fetching projects: {str(e)}"
 
 
@@ -343,12 +435,17 @@ async def todoist_get_labels() -> str:
     Returns:
         Formatted list of labels with IDs and names
     """
+    logger.info("Tool called: todoist_get_labels")
+
     try:
+        logger.debug("Fetching labels from Todoist API")
         # Get the async generator and consume it to get the list of labels
         labels = []
         label_generator = await todoist.get_labels()
         async for label_batch in label_generator:
             labels.extend(label_batch)
+
+        logger.info(f"Retrieved {len(labels)} label(s) from Todoist")
 
         if not labels:
             return "No labels found."
@@ -359,6 +456,7 @@ async def todoist_get_labels() -> str:
 
         return result
     except Exception as e:
+        logger.error(f"Failed to get labels - error={str(e)}", exc_info=True)
         return f"Error fetching labels: {str(e)}"
 
 

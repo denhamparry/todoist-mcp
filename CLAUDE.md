@@ -83,17 +83,69 @@ When creating a new project from this template:
 - [ ] Install and configure pre-commit: `pip install pre-commit && pre-commit install`
 - [ ] Set up GitHub App for PR reviews: run `/install-github-app` in Claude Code
 
-## Quick Commands (Template Defaults)
-
-Replace this section with your actual commands:
+## Quick Commands
 
 ```bash
-# Build: [Add your build command]
-# Test: [Add your test command]
-# Lint: [Add your lint command]
-# Type Check: [Add your typecheck command]
-# Dev Server: [Add your dev command]
+# Test: pytest
+# Test with coverage: pytest --cov=src/todoist_mcp --cov-report=html
+# Lint: pre-commit run --all-files
+# Type Check: mypy src/
+# Run server: uv run python -m todoist_mcp.server
+# Run with debug logging: LOG_LEVEL=DEBUG uv run python -m todoist_mcp.server
 ```
+
+## Debugging
+
+### Logging
+
+The server uses Python's built-in logging module with the following configuration:
+
+- **Default log level:** INFO
+- **Log output:** stderr (stdout reserved for MCP protocol)
+- **Configuration:** Set `LOG_LEVEL` environment variable
+
+**Available log levels:**
+
+- DEBUG - Detailed diagnostic information
+- INFO - General informational messages (default)
+- WARNING - Warning messages
+- ERROR - Error messages with stack traces
+- CRITICAL - Critical errors
+
+**Enable debug logging:**
+
+```bash
+# In .env file
+LOG_LEVEL=DEBUG
+
+# Or when running directly
+LOG_LEVEL=DEBUG uv run python -m todoist_mcp.server
+```
+
+**Log format:**
+
+```text
+YYYY-MM-DD HH:MM:SS - logger-name - LEVEL - message
+```
+
+### Common Debugging Scenarios
+
+**Issue: Tool not working as expected**
+
+1. Set `LOG_LEVEL=DEBUG`
+2. Run the tool
+3. Check logs for tool call parameters and API responses
+
+**Issue: API errors**
+
+1. Check ERROR level logs for exception details
+2. Look for stack traces (exc_info=True)
+3. Verify API token is valid
+
+**Issue: Validation failures**
+
+1. Check WARNING level logs for validation error messages
+2. Verify parameter values in log output
 
 ## Code Style Guidelines (Customize)
 
