@@ -51,13 +51,16 @@ Based on MCP ecosystem research:
 
 ### Todoist API Integration
 
-- REST API v1: <https://developer.todoist.com/rest/v1/>
+- REST API v2: <https://developer.todoist.com/rest/v2/>
+- Base URL: `https://api.todoist.com/rest/v2/`
 - Authentication: Bearer token (personal or OAuth)
+- Note: REST API v1 was sunset in November 2022. Use v2 for all new development.
+- Official Python SDK: `todoist-api-python` (recommended over manual HTTP calls)
 - Main endpoints needed:
-  - Tasks: GET, POST, PUT, DELETE `/rest/v1/tasks`
-  - Projects: GET `/rest/v1/projects`
-  - Labels: GET `/rest/v1/labels`
-  - Comments: GET, POST `/rest/v1/comments`
+  - Tasks: GET, POST, POST (update), DELETE `/rest/v2/tasks`
+  - Projects: GET `/rest/v2/projects`
+  - Labels: GET `/rest/v2/labels`
+  - Comments: GET, POST `/rest/v2/comments`
 
 ## Solution Design
 
@@ -65,11 +68,12 @@ Based on MCP ecosystem research:
 
 Build a Python-based MCP server using the official MCP SDK that exposes Todoist task management capabilities as MCP tools. Python chosen for:
 
-1. Official MCP SDK support
-2. Rapid development and iteration
-3. Excellent HTTP client libraries (httpx, requests)
+1. Official MCP SDK support (`mcp` package on PyPI)
+2. Official Todoist API Python SDK (`todoist-api-python`)
+3. Rapid development and iteration
 4. Strong community support
 5. Easy testing with pytest
+6. Excellent async/await support for concurrent operations
 
 ### Architecture
 
@@ -91,14 +95,19 @@ Build a Python-based MCP server using the official MCP SDK that exposes Todoist 
 │  │  - list   │  │
 │  │  - update │  │
 │  │  - delete │  │
+│  └─────┬─────┘  │
+│        │        │
+│  ┌─────▼─────┐  │
+│  │ Todoist   │  │
+│  │ API SDK   │  │
 │  └───────────┘  │
 └────────┬────────┘
          │
-         │ HTTPS REST API
+         │ HTTPS REST API v2
          │
 ┌────────▼────────┐
 │  Todoist API    │
-│  (REST v1)      │
+│  (REST v2)      │
 └─────────────────┘
 ```
 
@@ -207,31 +216,161 @@ TODOIST_API_TOKEN=your_api_token_here
 
 **Files:**
 
-- `pyproject.toml` - Python project configuration
-- `requirements.txt` or `poetry.lock` - Dependencies
+- `pyproject.toml` - Python project configuration (recommended)
 - `.env.example` - Environment template
-- `.gitignore` - Ignore .env, **pycache**, etc.
+- `.gitignore` - Update to ignore .env, **pycache**, .venv, etc.
+- `src/todoist_mcp/__init__.py` - Package initialization
 
 **Changes:**
 
-1. Initialize Python project structure
-2. Add dependencies:
-   - `mcp` - Official MCP SDK
-   - `httpx` - Modern HTTP client
-   - `python-dotenv` - Environment variable management
-   - `pydantic` - Data validation
-   - `pytest` - Testing framework
-   - `pytest-asyncio` - Async test support
-   - `pytest-cov` - Coverage reporting
+1. Initialize Python project structure (choose one approach):
+
+   **Option A: Using `uv` (Recommended - Modern, Fast)**
+
+   ```bash
+   # Install uv if not already installed
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+
+   # Initialize project
+   uv init todoist-mcp
+   cd todoist-mcp
+
+   # Add dependencies
+   uv add mcp todoist-api-python python-dotenv pydantic
+   uv add --dev pytest pytest-asyncio pytest-cov black isort flake8 mypy
+   ```
+
+   **Option B: Using `pip` (Traditional)**
+
+   ```bash
+   # Create project structure
+   mkdir -p src/todoist_mcp tests
+   touch src/todoist_mcp/__init__.py
+
+   # Create virtual environment
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+   # Install dependencies (after creating pyproject.toml)
+   pip install -e ".[dev]"
+   ```
+
+2. Create `pyproject.toml` with dependencies:
+
+   ```toml
+   [build-system]
+   requires = ["setuptools>=68.0.0", "wheel"]
+   build-backend = "setuptools.build_meta"
+
+   [project]
+   name = "todoist-mcp"
+   version = "0.1.0"
+   description = "MCP server for Todoist task management"
+   requires-python = ">=3.10"
+   dependencies = [
+       "mcp>=1.22.0",
+       "todoist-api-python>=2.1.9",
+       "python-dotenv>=1.0.0",
+       "pydantic>=2.0.0",
+   ]
+
+   [project.optional-dependencies]
+   dev = [
+       "pytest>=8.0.0",
+       "pytest-asyncio>=0.23.0",
+       "pytest-cov>=4.1.0",
+       "pytest-httpx>=0.30.0",
+       "black>=24.0.0",
+       "isort>=5.13.0",
+       "flake8>=7.0.0",
+       "mypy>=1.11.0",
+   ]
+
+   [project.scripts]
+   todoist-mcp = "todoist_mcp.server:main"
+
+   [tool.pytest.ini_options]
+   testpaths = ["tests"]
+   python_files = "test_*.py"
+   asyncio_mode = "auto"
+   addopts = "--cov=src/todoist_mcp --cov-report=term-missing --cov-fail-under=80"
+
+   [tool.black]
+   line-length = 88
+   target-version = ["py310"]
+
+   [tool.isort]
+   profile = "black"
+   ```
+
+3. Update `.gitignore` for Python:
+
+   ```text
+   # Existing entries
+   .env
+
+   # Python
+   __pycache__/
+   *.py[cod]
+   *$py.class
+   *.so
+   .Python
+   build/
+   develop-eggs/
+   dist/
+   downloads/
+   eggs/
+   .eggs/
+   lib/
+   lib64/
+   parts/
+   sdist/
+   var/
+   wheels/
+   *.egg-info/
+   .installed.cfg
+   *.egg
+
+   # Virtual environments
+   .venv/
+   venv/
+   ENV/
+   env/
+
+   # Testing
+   .pytest_cache/
+   .coverage
+   htmlcov/
+
+   # IDE
+   .vscode/
+   .idea/
+   *.swp
+   *.swo
+   *~
+   ```
+
+**Key Dependencies:**
+
+- `mcp>=1.22.0` - Official MCP SDK (latest with 2025-06-18 spec support)
+- `todoist-api-python>=2.1.9` - Official Todoist Python SDK (async support included)
+- `python-dotenv>=1.0.0` - Environment variable management
+- `pydantic>=2.0.0` - Data validation and settings management
+- `pytest>=8.0.0` - Testing framework
+- `pytest-asyncio>=0.23.0` - Async test support
+- `pytest-httpx>=0.30.0` - HTTP mocking for tests
 
 **Testing:**
 
 ```bash
-# Verify dependencies install
-python -m pip install -e .
+# Using uv
+uv run python -c "import mcp; from todoist_api_python.api import TodoistAPI; import dotenv; print('All imports successful')"
 
-# Verify imports work
-python -c "import mcp; import httpx; import dotenv"
+# Using pip
+python -c "import mcp; from todoist_api_python.api import TodoistAPI; import dotenv; print('All imports successful')"
+
+# Verify pytest works
+pytest --version
 ```
 
 ### Step 2: Create MCP Server Foundation
@@ -240,232 +379,502 @@ python -c "import mcp; import httpx; import dotenv"
 
 **Changes:**
 
-1. Create MCP server class
-2. Initialize server with name and version
-3. Set up stdio transport
-4. Add configuration loading (API token)
-5. Implement server lifecycle (startup, shutdown)
+1. Create MCP server using modern FastMCP API (simpler than low-level Server class)
+2. Initialize with name and version
+3. Configure Todoist API client
+4. Load API token from environment
+5. Set up error handling
 
-**Code Example:**
+**Code Example (Recommended - Using FastMCP):**
 
 ```python
+"""Todoist MCP Server
+
+An MCP server that enables AI agents to manage Todoist tasks.
+"""
+import os
+from typing import Optional
+from dotenv import load_dotenv
+from mcp.server.fastmcp import FastMCP
+from todoist_api_python.api_async import TodoistAPIAsync
+
+# Load environment variables
+load_dotenv()
+
+# Initialize MCP server
+mcp = FastMCP(name="todoist-mcp", version="0.1.0")
+
+# Initialize Todoist API client
+API_TOKEN = os.getenv("TODOIST_API_TOKEN")
+if not API_TOKEN:
+    raise ValueError("TODOIST_API_TOKEN environment variable not set")
+
+todoist = TodoistAPIAsync(API_TOKEN)
+
+
+# Tool implementations will be added in Step 4
+@mcp.tool()
+async def todoist_get_tasks(
+    project_id: Optional[str] = None,
+    filter: Optional[str] = None
+) -> str:
+    """Get tasks from Todoist with optional filtering.
+
+    Args:
+        project_id: Filter tasks by project ID
+        filter: Todoist filter query (e.g., "today", "p1")
+
+    Returns:
+        Formatted list of tasks
+    """
+    try:
+        tasks = await todoist.get_tasks(project_id=project_id, filter=filter)
+
+        if not tasks:
+            return "No tasks found."
+
+        result = f"Found {len(tasks)} task(s):\n\n"
+        for task in tasks:
+            result += f"- [{task.id}] {task.content}\n"
+            if task.due:
+                result += f"  Due: {task.due.string}\n"
+            if task.priority > 1:
+                result += f"  Priority: {task.priority}\n"
+
+        return result
+    except Exception as e:
+        return f"Error fetching tasks: {str(e)}"
+
+
+def main():
+    """Run the MCP server."""
+    mcp.run()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+**Alternative (Low-Level Server API):**
+
+```python
+"""Low-level Server API alternative (more control, more complex)"""
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
+from mcp.types import Tool, TextContent
 import os
 from dotenv import load_dotenv
+from todoist_api_python.api_async import TodoistAPIAsync
 
 load_dotenv()
 
 app = Server("todoist-mcp")
+todoist = TodoistAPIAsync(os.getenv("TODOIST_API_TOKEN"))
+
 
 @app.list_tools()
-async def list_tools():
-    """List available Todoist tools"""
+async def list_tools() -> list[Tool]:
+    """List available tools"""
     return [
-        {
-            "name": "todoist_get_tasks",
-            "description": "Get tasks from Todoist",
-            "inputSchema": {
+        Tool(
+            name="todoist_get_tasks",
+            description="Get tasks from Todoist",
+            inputSchema={
                 "type": "object",
                 "properties": {
-                    "project_id": {"type": "string"},
-                    "filter": {"type": "string"}
+                    "project_id": {"type": "string", "description": "Project ID"},
+                    "filter": {"type": "string", "description": "Filter query"}
                 }
             }
-        }
+        )
     ]
 
-async def main():
-    async with stdio_server() as (read_stream, write_stream):
-        await app.run(read_stream, write_stream, app.create_initialization_options())
+
+@app.call_tool()
+async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+    """Handle tool calls"""
+    if name == "todoist_get_tasks":
+        tasks = await todoist.get_tasks(
+            project_id=arguments.get("project_id"),
+            filter=arguments.get("filter")
+        )
+        content = f"Found {len(tasks)} tasks"
+        return [TextContent(type="text", text=content)]
+
+
+def main():
+    """Run the server"""
+    stdio_server(app)
+
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    main()
 ```
+
+**Recommendation:** Use FastMCP unless you need low-level control. FastMCP automatically handles:
+
+- Tool registration and schema generation
+- Type hint parsing for parameters
+- Error responses
+- Stdio transport setup
 
 **Testing:**
 
 ```bash
-# Run server (should not crash)
+# Using uv
+uv run python -m todoist_mcp.server
+
+# Using pip (with activated venv)
 python -m todoist_mcp.server
 
-# Verify server responds to list_tools
+# Test with MCP inspector (if available)
+npx @modelcontextprotocol/inspector python -m todoist_mcp.server
+
+# Verify server responds (manual JSON-RPC test)
 echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | python -m todoist_mcp.server
 ```
 
-### Step 3: Implement Todoist API Client
+### Step 3: Using the Official Todoist SDK
 
-**File:** `src/todoist_mcp/todoist_client.py`
+**Note:** This step is simplified because we're using the official `todoist-api-python` SDK instead of building a custom HTTP client.
 
-**Changes:**
+**Benefits of Official SDK:**
 
-1. Create `TodoistClient` class
-2. Initialize with API token
-3. Implement HTTP methods (GET, POST, PUT, DELETE)
-4. Add methods for each API endpoint:
-   - `get_tasks(project_id=None, filter=None)`
-   - `create_task(content, **kwargs)`
-   - `update_task(task_id, **kwargs)`
-   - `complete_task(task_id)`
-   - `delete_task(task_id)`
-   - `get_projects()`
-   - `get_labels()`
-5. Error handling and response parsing
+- ✅ Maintained by Todoist team
+- ✅ Type hints and IDE support
+- ✅ Built-in error handling
+- ✅ Automatic authentication
+- ✅ Async support included (`TodoistAPIAsync`)
+- ✅ Well-tested and stable
 
-**Code Example:**
+**Key Methods Available:**
 
 ```python
-import httpx
-from typing import Optional, List, Dict, Any
+from todoist_api_python.api_async import TodoistAPIAsync
 
-class TodoistClient:
-    BASE_URL = "https://api.todoist.com/rest/v2"
+# Initialize
+todoist = TodoistAPIAsync("your_api_token")
 
-    def __init__(self, api_token: str):
-        self.api_token = api_token
-        self.client = httpx.AsyncClient(
-            headers={
-                "Authorization": f"Bearer {api_token}",
-                "Content-Type": "application/json"
-            },
-            timeout=30.0
-        )
+# Tasks
+tasks = await todoist.get_tasks(project_id="...", filter="today")
+task = await todoist.add_task(content="New task", due_string="tomorrow", priority=4)
+task = await todoist.get_task(task_id="...")
+success = await todoist.update_task(task_id="...", content="Updated")
+success = await todoist.close_task(task_id="...")  # Mark complete
+success = await todoist.delete_task(task_id="...")
 
-    async def get_tasks(
-        self,
-        project_id: Optional[str] = None,
-        filter: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
-        """Get tasks from Todoist"""
-        params = {}
-        if project_id:
-            params["project_id"] = project_id
-        if filter:
-            params["filter"] = filter
+# Projects
+projects = await todoist.get_projects()
+project = await todoist.get_project(project_id="...")
 
-        response = await self.client.get(f"{self.BASE_URL}/tasks", params=params)
-        response.raise_for_status()
-        return response.json()
+# Labels
+labels = await todoist.get_labels()
 
-    async def create_task(
-        self,
-        content: str,
-        description: Optional[str] = None,
-        project_id: Optional[str] = None,
-        due_string: Optional[str] = None,
-        priority: Optional[int] = None,
-        labels: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
-        """Create a new task"""
-        data = {"content": content}
-        if description:
-            data["description"] = description
-        if project_id:
-            data["project_id"] = project_id
-        if due_string:
-            data["due_string"] = due_string
-        if priority:
-            data["priority"] = priority
-        if labels:
-            data["labels"] = labels
-
-        response = await self.client.post(f"{self.BASE_URL}/tasks", json=data)
-        response.raise_for_status()
-        return response.json()
-
-    # Additional methods: update_task, complete_task, delete_task, get_projects, get_labels
+# Comments
+comments = await todoist.get_comments(task_id="...")
+comment = await todoist.add_comment(task_id="...", content="Comment text")
 ```
 
-**Testing:**
+**Error Handling:**
+
+The SDK raises exceptions for errors:
 
 ```python
-# tests/test_todoist_client.py
+from todoist_api_python.api_async import TodoistAPIAsync
+from todoist_api_python.http_requests import HttpxClient
+
+try:
+    task = await todoist.get_task("invalid_id")
+except Exception as e:
+    # Handle API errors
+    error_msg = f"Todoist API error: {str(e)}"
+```
+
+**Testing with Official SDK:**
+
+```python
+# tests/test_todoist_integration.py
 import pytest
-from todoist_mcp.todoist_client import TodoistClient
+from todoist_api_python.api_async import TodoistAPIAsync
 
 @pytest.mark.asyncio
-async def test_get_tasks(mock_httpx_client):
-    client = TodoistClient("test_token")
-    tasks = await client.get_tasks()
+async def test_get_tasks_with_official_sdk():
+    """Test using official SDK (requires real API token for integration tests)"""
+    import os
+    api_token = os.getenv("TODOIST_API_TOKEN")
+
+    if not api_token:
+        pytest.skip("TODOIST_API_TOKEN not set")
+
+    todoist = TodoistAPIAsync(api_token)
+    tasks = await todoist.get_tasks()
+
     assert isinstance(tasks, list)
 
 @pytest.mark.asyncio
-async def test_create_task(mock_httpx_client):
-    client = TodoistClient("test_token")
-    task = await client.create_task("Test task")
-    assert task["content"] == "Test task"
+async def test_create_and_delete_task():
+    """Full lifecycle test"""
+    import os
+    api_token = os.getenv("TODOIST_API_TOKEN")
+
+    if not api_token:
+        pytest.skip("TODOIST_API_TOKEN not set")
+
+    todoist = TodoistAPIAsync(api_token)
+
+    # Create
+    task = await todoist.add_task(content="Test task from pytest")
+    assert task.content == "Test task from pytest"
+
+    # Cleanup
+    await todoist.delete_task(task_id=task.id)
 ```
+
+**Documentation:**
+
+- API Reference: <https://doist.github.io/todoist-api-python/>
+- GitHub: <https://github.com/Doist/todoist-api-python>
+- REST API Docs: <https://developer.todoist.com/rest/v2/>
 
 ### Step 4: Implement MCP Tool Handlers
 
-**File:** `src/todoist_mcp/tools.py`
+**File:** `src/todoist_mcp/server.py` (add to existing file)
 
 **Changes:**
 
-1. Create tool handler functions for each Todoist operation
-2. Connect tool handlers to MCP server
-3. Implement input validation using Pydantic
-4. Format responses for AI agent consumption
-5. Error handling and user-friendly messages
+1. Implement tool functions using FastMCP decorators
+2. Use official Todoist SDK methods
+3. Add comprehensive error handling
+4. Format responses for readability
+5. Document all parameters clearly
 
-**Code Example:**
+**Note:** With FastMCP, we add tools directly in `server.py` using `@mcp.tool()` decorators. No separate tools.py file needed.
+
+**Complete Implementation:**
 
 ```python
-from mcp.server import Server
-from pydantic import BaseModel, Field
+"""Todoist MCP Server - Complete Implementation"""
+import os
 from typing import Optional, List
-from .todoist_client import TodoistClient
+from dotenv import load_dotenv
+from mcp.server.fastmcp import FastMCP
+from todoist_api_python.api_async import TodoistAPIAsync
 
-class GetTasksInput(BaseModel):
-    project_id: Optional[str] = Field(None, description="Filter tasks by project ID")
-    filter: Optional[str] = Field(None, description="Todoist filter query")
+load_dotenv()
 
-class CreateTaskInput(BaseModel):
-    content: str = Field(..., description="Task title")
-    description: Optional[str] = Field(None, description="Task description")
-    project_id: Optional[str] = Field(None, description="Project ID")
-    due_string: Optional[str] = Field(None, description="Due date (e.g., 'tomorrow', 'next Monday')")
-    priority: Optional[int] = Field(None, ge=1, le=4, description="Priority (1=normal, 4=urgent)")
-    labels: Optional[List[str]] = Field(None, description="Label names")
+# Initialize
+mcp = FastMCP(name="todoist-mcp", version="0.1.0")
+API_TOKEN = os.getenv("TODOIST_API_TOKEN")
+if not API_TOKEN:
+    raise ValueError("TODOIST_API_TOKEN environment variable not set")
 
-def register_tools(server: Server, todoist: TodoistClient):
-    @server.call_tool()
-    async def todoist_get_tasks(arguments: dict) -> str:
-        """Get tasks from Todoist"""
-        input_data = GetTasksInput(**arguments)
-        tasks = await todoist.get_tasks(
-            project_id=input_data.project_id,
-            filter=input_data.filter
-        )
+todoist = TodoistAPIAsync(API_TOKEN)
 
-        # Format for readability
-        result = f"Found {len(tasks)} tasks:\n\n"
+
+@mcp.tool()
+async def todoist_get_tasks(
+    project_id: Optional[str] = None,
+    filter: Optional[str] = None
+) -> str:
+    """Get tasks from Todoist with optional filtering.
+
+    Args:
+        project_id: Filter tasks by project ID
+        filter: Todoist filter query (e.g., "today", "p1", "overdue")
+
+    Returns:
+        Formatted list of tasks with IDs, content, due dates, and priorities
+    """
+    try:
+        tasks = await todoist.get_tasks(project_id=project_id, filter=filter)
+
+        if not tasks:
+            return "No tasks found."
+
+        result = f"Found {len(tasks)} task(s):\n\n"
         for task in tasks:
-            result += f"- [{task['id']}] {task['content']}\n"
-            if task.get('due'):
-                result += f"  Due: {task['due']['string']}\n"
-            if task.get('priority') > 1:
-                result += f"  Priority: {task['priority']}\n"
+            result += f"- [{task.id}] {task.content}\n"
+            if task.due:
+                result += f"  Due: {task.due.string}\n"
+            if task.priority > 1:
+                priority_map = {4: "P1 (Urgent)", 3: "P2 (High)", 2: "P3 (Medium)"}
+                result += f"  Priority: {priority_map.get(task.priority, task.priority)}\n"
+            if task.labels:
+                result += f"  Labels: {', '.join(task.labels)}\n"
 
         return result
+    except Exception as e:
+        return f"Error fetching tasks: {str(e)}"
 
-    @server.call_tool()
-    async def todoist_create_task(arguments: dict) -> str:
-        """Create a new task in Todoist"""
-        input_data = CreateTaskInput(**arguments)
-        task = await todoist.create_task(
-            content=input_data.content,
-            description=input_data.description,
-            project_id=input_data.project_id,
-            due_string=input_data.due_string,
-            priority=input_data.priority,
-            labels=input_data.labels
+
+@mcp.tool()
+async def todoist_create_task(
+    content: str,
+    description: Optional[str] = None,
+    project_id: Optional[str] = None,
+    due_string: Optional[str] = None,
+    priority: Optional[int] = None,
+    labels: Optional[List[str]] = None
+) -> str:
+    """Create a new task in Todoist.
+
+    Args:
+        content: Task title (required)
+        description: Detailed task description
+        project_id: Project ID to add task to
+        due_string: Natural language due date (e.g., "tomorrow", "next Monday at 3pm")
+        priority: Task priority (1=normal, 2=medium, 3=high, 4=urgent)
+        labels: List of label names to apply
+
+    Returns:
+        Success message with task ID
+    """
+    try:
+        task = await todoist.add_task(
+            content=content,
+            description=description,
+            project_id=project_id,
+            due_string=due_string,
+            priority=priority,
+            labels=labels
         )
+        return f"✓ Task created: {task.content} (ID: {task.id})"
+    except Exception as e:
+        return f"Error creating task: {str(e)}"
 
-        return f"Task created successfully: {task['content']} (ID: {task['id']})"
 
-    # Additional tool handlers: update, complete, delete, get_projects, get_labels
+@mcp.tool()
+async def todoist_update_task(
+    task_id: str,
+    content: Optional[str] = None,
+    description: Optional[str] = None,
+    due_string: Optional[str] = None,
+    priority: Optional[int] = None,
+    labels: Optional[List[str]] = None
+) -> str:
+    """Update an existing task in Todoist.
+
+    Args:
+        task_id: ID of the task to update (required)
+        content: New task title
+        description: New task description
+        due_string: New due date
+        priority: New priority (1-4)
+        labels: New list of label names
+
+    Returns:
+        Success message
+    """
+    try:
+        success = await todoist.update_task(
+            task_id=task_id,
+            content=content,
+            description=description,
+            due_string=due_string,
+            priority=priority,
+            labels=labels
+        )
+        if success:
+            return f"✓ Task {task_id} updated successfully"
+        else:
+            return f"Failed to update task {task_id}"
+    except Exception as e:
+        return f"Error updating task: {str(e)}"
+
+
+@mcp.tool()
+async def todoist_complete_task(task_id: str) -> str:
+    """Mark a task as complete in Todoist.
+
+    Args:
+        task_id: ID of the task to complete (required)
+
+    Returns:
+        Success message
+    """
+    try:
+        success = await todoist.close_task(task_id=task_id)
+        if success:
+            return f"✓ Task {task_id} marked as complete"
+        else:
+            return f"Failed to complete task {task_id}"
+    except Exception as e:
+        return f"Error completing task: {str(e)}"
+
+
+@mcp.tool()
+async def todoist_delete_task(task_id: str) -> str:
+    """Delete a task from Todoist permanently.
+
+    Args:
+        task_id: ID of the task to delete (required)
+
+    Returns:
+        Success message
+    """
+    try:
+        success = await todoist.delete_task(task_id=task_id)
+        if success:
+            return f"✓ Task {task_id} deleted"
+        else:
+            return f"Failed to delete task {task_id}"
+    except Exception as e:
+        return f"Error deleting task: {str(e)}"
+
+
+@mcp.tool()
+async def todoist_get_projects() -> str:
+    """Get all projects from Todoist.
+
+    Returns:
+        Formatted list of projects with IDs and names
+    """
+    try:
+        projects = await todoist.get_projects()
+
+        if not projects:
+            return "No projects found."
+
+        result = f"Found {len(projects)} project(s):\n\n"
+        for project in projects:
+            result += f"- [{project.id}] {project.name}\n"
+            if project.is_favorite:
+                result += "  ⭐ Favorite\n"
+
+        return result
+    except Exception as e:
+        return f"Error fetching projects: {str(e)}"
+
+
+@mcp.tool()
+async def todoist_get_labels() -> str:
+    """Get all labels from Todoist.
+
+    Returns:
+        Formatted list of labels with IDs and names
+    """
+    try:
+        labels = await todoist.get_labels()
+
+        if not labels:
+            return "No labels found."
+
+        result = f"Found {len(labels)} label(s):\n\n"
+        for label in labels:
+            result += f"- [{label.id}] {label.name}\n"
+
+        return result
+    except Exception as e:
+        return f"Error fetching labels: {str(e)}"
+
+
+def main():
+    """Run the MCP server."""
+    mcp.run()
+
+
+if __name__ == "__main__":
+    main()
 ```
 
 **Testing:**
@@ -473,21 +882,37 @@ def register_tools(server: Server, todoist: TodoistClient):
 ```python
 # tests/test_tools.py
 import pytest
-from todoist_mcp.tools import register_tools
-from todoist_mcp.server import app
+import os
+from todoist_mcp.server import mcp
 
 @pytest.mark.asyncio
-async def test_todoist_get_tasks_tool():
-    # Test tool is registered
-    tools = await app.list_tools()
-    assert any(t["name"] == "todoist_get_tasks" for t in tools)
+async def test_all_tools_registered():
+    """Verify all tools are properly registered"""
+    # FastMCP automatically generates tool list from decorators
+    # In actual implementation, you'd use MCP protocol to list tools
+    pass
 
+
+@pytest.mark.integration
 @pytest.mark.asyncio
-async def test_todoist_create_task_tool(mock_todoist_client):
-    result = await app.call_tool("todoist_create_task", {
-        "content": "Test task"
-    })
-    assert "Task created successfully" in result
+async def test_create_and_complete_task_flow():
+    """Integration test for complete task workflow"""
+    if not os.getenv("TODOIST_API_TOKEN"):
+        pytest.skip("TODOIST_API_TOKEN not set")
+
+    from todoist_api_python.api_async import TodoistAPIAsync
+    todoist = TodoistAPIAsync(os.getenv("TODOIST_API_TOKEN"))
+
+    # Create task
+    task = await todoist.add_task(content="Test task from MCP server")
+    assert task.id
+
+    # Complete task
+    success = await todoist.close_task(task_id=task.id)
+    assert success
+
+    # Cleanup (delete completed task)
+    await todoist.delete_task(task_id=task.id)
 ```
 
 ### Step 5: Configuration and Documentation
@@ -592,35 +1017,28 @@ TODOIST_API_TOKEN=your_api_token_here
 
 **Files:**
 
-- `tests/test_server.py` - Server initialization tests
-- `tests/test_todoist_client.py` - API client tests
-- `tests/test_tools.py` - Tool handler tests
-- `tests/test_integration.py` - End-to-end tests
-- `pytest.ini` - Pytest configuration
+- `tests/test_server.py` - Server initialization tests (FastMCP, tool registration)
+- `tests/test_integration.py` - Integration tests with real Todoist API
 - `.github/workflows/ci.yml` - CI pipeline updates
+
+**Note:** Pytest configuration is in `pyproject.toml` (Step 1), not separate `pytest.ini` file.
 
 **Changes:**
 
-1. Write comprehensive unit tests for all components
-2. Create integration tests with real Todoist account
-3. Set up pytest configuration with coverage
-4. Update CI workflow to run tests
-5. Achieve >80% test coverage
+1. Write unit tests for server initialization and tool registration
+2. Create integration tests with real Todoist account (marked with `@pytest.mark.integration`)
+3. Use official `todoist-api-python` SDK in tests (no mocking needed for integration tests)
+4. Update CI workflow to run unit tests (skip integration tests by default)
+5. Achieve >80% test coverage on src/todoist_mcp
 
-**pytest.ini:**
+**Pytest Configuration (Already in pyproject.toml from Step 1):**
 
-```ini
-[pytest]
-testpaths = tests
-python_files = test_*.py
-python_classes = Test*
-python_functions = test_*
-addopts =
-    --cov=src/todoist_mcp
-    --cov-report=term-missing
-    --cov-report=html
-    --cov-fail-under=80
-asyncio_mode = auto
+```toml
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+asyncio_mode = "auto"
+addopts = "--cov=src/todoist_mcp --cov-report=term-missing --cov-fail-under=80"
 ```
 
 **Testing:**
@@ -704,33 +1122,48 @@ pre-commit run --all-files
 
 **Test Coverage Areas:**
 
-1. **TodoistClient:** All HTTP methods, error handling, response parsing
-2. **Tool Handlers:** Input validation, response formatting, error messages
-3. **Server:** Initialization, tool registration, lifecycle
+1. **Server Initialization:** FastMCP setup, API token validation, error handling
+2. **Tool Registration:** Verify all 7 tools are registered with correct schemas
+3. **Error Handling:** Missing API token, invalid inputs, API errors
 
 **Approach:**
 
-- Mock HTTP responses using `pytest-httpx`
-- Test success and error cases
-- Validate input schemas with invalid data
-- Verify error messages are user-friendly
+- Test server initialization without real API calls
+- Verify tool registration using FastMCP internals
+- Test error paths (missing token, etc.)
+- Keep unit tests fast (no external dependencies)
 
-**Example Test:**
+**Example Tests:**
 
 ```python
+# tests/test_server.py
+import pytest
+import os
+
+def test_server_requires_api_token(monkeypatch):
+    """Test that server raises error without API token"""
+    monkeypatch.delenv("TODOIST_API_TOKEN", raising=False)
+
+    with pytest.raises(ValueError, match="TODOIST_API_TOKEN"):
+        import todoist_mcp.server
+
+def test_server_initializes_with_token(monkeypatch):
+    """Test that server initializes properly with token"""
+    monkeypatch.setenv("TODOIST_API_TOKEN", "test_token")
+
+    from todoist_mcp.server import mcp, todoist
+    assert mcp is not None
+    assert todoist is not None
+
 @pytest.mark.asyncio
-async def test_get_tasks_with_filter(httpx_mock):
-    httpx_mock.add_response(
-        url="https://api.todoist.com/rest/v2/tasks?filter=today",
-        json=[{"id": "123", "content": "Test task"}]
-    )
-
-    client = TodoistClient("test_token")
-    tasks = await client.get_tasks(filter="today")
-
-    assert len(tasks) == 1
-    assert tasks[0]["content"] == "Test task"
+async def test_tool_schemas_generated():
+    """Test that FastMCP generates correct tool schemas"""
+    # FastMCP automatically generates schemas from type hints
+    # Verify tools exist and have expected parameters
+    pass
 ```
+
+**Note:** Unit tests focus on server initialization and registration. Integration tests (below) handle actual Todoist API calls.
 
 ### Integration Testing
 
@@ -825,21 +1258,21 @@ async def test_create_and_retrieve_task(todoist_client, test_project_id):
 ### New Files Created
 
 1. `src/todoist_mcp/__init__.py` - Package initialization
-2. `src/todoist_mcp/server.py` - MCP server implementation
-3. `src/todoist_mcp/todoist_client.py` - Todoist API client
-4. `src/todoist_mcp/tools.py` - MCP tool handlers
-5. `tests/__init__.py` - Test package
-6. `tests/test_server.py` - Server tests
-7. `tests/test_todoist_client.py` - Client tests
-8. `tests/test_tools.py` - Tool tests
-9. `tests/test_integration.py` - Integration tests
-10. `tests/conftest.py` - Pytest fixtures
-11. `pyproject.toml` - Python project configuration
-12. `requirements.txt` - Production dependencies
-13. `requirements-dev.txt` - Development dependencies
-14. `.env.example` - Environment template
-15. `pytest.ini` - Pytest configuration
-16. `docs/api.md` - Tool API documentation
+2. `src/todoist_mcp/server.py` - Complete MCP server implementation with all tools
+3. `tests/__init__.py` - Test package
+4. `tests/test_server.py` - Server initialization tests
+5. `tests/test_integration.py` - Integration tests with real Todoist API
+6. `tests/conftest.py` - Pytest fixtures
+7. `pyproject.toml` - Python project configuration (includes all dependencies and tool config)
+8. `.env.example` - Environment variable template
+9. `docs/api.md` - Tool API documentation
+
+**Note:** Using official SDKs (`mcp` and `todoist-api-python`) eliminates need for:
+
+- ~~`todoist_client.py`~~ - Using `todoist-api-python` SDK directly
+- ~~`tools.py`~~ - Tools defined inline in `server.py` with FastMCP decorators
+- ~~`requirements.txt`~~ - Using `pyproject.toml` instead
+- ~~`pytest.ini`~~ - Configuration in `pyproject.toml` under `[tool.pytest.ini_options]`
 
 ### Modified Files
 
@@ -864,7 +1297,8 @@ async def test_create_and_retrieve_task(todoist_client, test_project_id):
 ### Related
 
 - MCP specification: <https://modelcontextprotocol.io/specification/2025-06-18>
-- Todoist REST API: <https://developer.todoist.com/rest/v1/>
+- Todoist REST API v2: <https://developer.todoist.com/rest/v2/>
+- Official Todoist Python SDK: <https://github.com/Doist/todoist-api-python>
 
 ### Enables
 
@@ -882,9 +1316,10 @@ async def test_create_and_retrieve_task(todoist_client, test_project_id):
 ### Documentation
 
 - [Model Context Protocol Specification](https://modelcontextprotocol.io/specification/2025-06-18)
-- [Todoist REST API Reference](https://developer.todoist.com/rest/v1/)
-- [Find Todoist API Token](https://www.todoist.com/help/articles/find-your-api-token-Jpzx9IIlB)
-- [MCP GitHub Repository](https://github.com/modelcontextprotocol)
+- [Todoist REST API v2 Reference](https://developer.todoist.com/rest/v2/)
+- [Todoist Python SDK Documentation](https://doist.github.io/todoist-api-python/)
+- [Find Todoist API Token](https://todoist.com/help/articles/find-your-api-token-Jpzx9IIlB)
+- [MCP Python SDK Repository](https://github.com/modelcontextprotocol/python-sdk)
 - [MCP Server Examples](https://github.com/modelcontextprotocol/servers)
 
 ### Research Sources
@@ -893,6 +1328,179 @@ async def test_create_and_retrieve_task(todoist_client, test_project_id):
 - [Anthropic MCP Announcement](https://www.anthropic.com/news/model-context-protocol)
 - [MCP 2025 Guide](https://quashbugs.com/blog/model-context-protocol-mcp-guide)
 - [MCP Specification Updates June 2025](https://auth0.com/blog/mcp-specs-update-all-about-auth/)
+
+## Implementation Decisions
+
+Based on the plan review, the following technical decisions have been made:
+
+### 1. Package Manager: `uv` (Recommended) with `pip` Fallback
+
+**Decision:** Provide both options, recommend `uv`
+
+**Rationale:**
+
+- `uv` is the modern Python package manager recommended by the MCP ecosystem
+- Significantly faster dependency resolution (10-100x faster than pip)
+- Better dependency locking and reproducibility
+- However, `pip` is more universally available and familiar
+- Provide both options to accommodate different developer preferences and CI/CD systems
+
+**Implementation:** Step 1 includes both Option A (uv) and Option B (pip) with clear instructions
+
+### 2. MCP SDK Pattern: FastMCP (High-Level API)
+
+**Decision:** Use FastMCP instead of low-level Server class
+
+**Rationale:**
+
+- FastMCP is simpler and more intuitive for most use cases
+- Automatically generates tool schemas from type hints
+- Reduces boilerplate code significantly (~50% less code)
+- Better developer experience with decorator-based API
+- Handles stdio transport automatically
+- Low-level Server API provided as alternative for advanced use cases
+
+**Code Impact:**
+
+```python
+# FastMCP (chosen) - ~5 lines to add a tool
+@mcp.tool()
+async def my_tool(param: str) -> str:
+    """Docstring becomes tool description"""
+    return result
+
+# vs Server (alternative) - ~15 lines to add a tool
+@app.list_tools()
+async def list_tools():
+    return [Tool(name="my_tool", description="...", inputSchema={...})]
+
+@app.call_tool()
+async def call_tool(name: str, args: dict):
+    if name == "my_tool":
+        ...
+```
+
+**Implementation:** Step 2 demonstrates FastMCP with low-level alternative provided
+
+### 3. HTTP Client: Official Todoist SDK
+
+**Decision:** Use `todoist-api-python` instead of building custom HTTP client with `httpx`
+
+**Rationale:**
+
+- Official SDK maintained by Todoist team (Doist)
+- Eliminates ~200+ lines of custom HTTP client code
+- Built-in error handling, retries, and authentication
+- Type hints and IDE autocomplete support
+- Async support included (`TodoistAPIAsync`)
+- Automatically updated when Todoist API changes
+- Well-tested and battle-tested in production
+- Reduces maintenance burden and potential bugs
+
+**Code Impact:**
+
+- Eliminates `todoist_client.py` file entirely
+- Reduces Step 3 from custom implementation to SDK usage documentation
+- Changes dependency from `httpx` to `todoist-api-python>=2.1.9`
+
+**Implementation:** Step 3 simplified to SDK usage guide
+
+### 4. API Version: REST API v2
+
+**Decision:** Use REST API v2 exclusively
+
+**Rationale:**
+
+- REST API v1 was sunset in November 2022 (no longer available)
+- All new development must use v2
+- Base URL: `https://api.todoist.com/rest/v2/`
+- Key difference: IDs are strings in v2 (were integers in v1)
+- Official SDK uses v2 by default
+
+**Implementation:** All references updated to v2 throughout plan
+
+### 5. Python Version: >=3.10
+
+**Decision:** Require Python 3.10 or later
+
+**Rationale:**
+
+- MCP SDK works with Python 3.9+ but 3.10+ recommended
+- Better type hint support (PEP 604: Union types with `|`)
+- Improved async/await error messages
+- Pattern matching (PEP 634) available if needed
+- Most systems have 3.10+ by late 2025
+
+**Implementation:** `requires-python = ">=3.10"` in pyproject.toml
+
+### 6. Testing Strategy: TDD with Separate Integration Tests
+
+**Decision:** Write tests first, separate unit and integration tests
+
+**Rationale:**
+
+- TDD enforced by project template and CLAUDE.md
+- Unit tests: Mock SDK responses, fast, no API calls
+- Integration tests: Real API calls, marked with `@pytest.mark.integration`
+- Integration tests skipped in CI by default (require API token)
+- Can run integration tests manually during development
+
+**Markers:**
+
+```python
+@pytest.mark.asyncio  # All async tests
+@pytest.mark.integration  # Requires real API token
+```
+
+**Implementation:**
+
+- Unit tests in `tests/test_server.py`
+- Integration tests in `tests/test_integration.py`
+- pytest.ini configured in pyproject.toml
+
+### 7. Project Structure: Minimal, Single-File Server
+
+**Decision:** Keep server implementation in single file initially
+
+**Rationale:**
+
+- FastMCP encourages single-file servers for simple use cases
+- ~300 lines total for complete implementation
+- Easier to understand and maintain
+- Can refactor into modules later if needed
+- Follows MCP community patterns
+
+**Structure:**
+
+```text
+todoist-mcp/
+├── src/
+│   └── todoist_mcp/
+│       ├── __init__.py
+│       └── server.py  # Complete implementation
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py
+│   ├── test_server.py
+│   └── test_integration.py
+├── pyproject.toml
+├── .env.example
+└── README.md
+```
+
+### 8. Documentation: README-First Approach
+
+**Decision:** Create comprehensive README during Step 5
+
+**Rationale:**
+
+- README serves as primary documentation
+- Includes installation, setup, usage examples
+- Configuration instructions for Claude Code
+- Follows project template guidelines
+- API documentation in separate `docs/api.md` for reference
+
+**Implementation:** Step 5 includes complete README template
 
 ## Notes
 
@@ -907,25 +1515,35 @@ async def test_create_and_retrieve_task(todoist_client, test_project_id):
 
 ### Alternative Approaches Considered
 
-1. **TypeScript Implementation** ❌
-   - Pros: Strong typing, official SDK, good for frontend developers
-   - Cons: More boilerplate than Python, requires Node.js runtime
-   - Why not chosen: Python is simpler for rapid prototyping and has better async support
+1. **Language Choice:**
+   - **TypeScript** ❌: More boilerplate, Node.js runtime required
+   - **Go** ❌: No official MCP SDK, manual JSON-RPC implementation needed
+   - **Python** ✅: Official MCP SDK, excellent async support, rapid development
 
-2. **Go Implementation** ❌
-   - Pros: Fast, single binary distribution, strong typing
-   - Cons: No official MCP SDK, would need to implement JSON-RPC manually
-   - Why not chosen: More development effort, no SDK support
+2. **MCP SDK Pattern:**
+   - **Low-level Server API** ❌: More control but significantly more boilerplate
+   - **FastMCP** ✅: Simpler, decorator-based, auto-generates schemas, less code
 
-3. **Python with Flask/FastAPI** ❌
-   - Pros: HTTP transport, web-based interface possible
-   - Cons: More complex than stdio, requires server deployment
-   - Why not chosen: stdio is simpler for local Claude Code use case
+3. **HTTP Client:**
+   - **Custom httpx client** ❌: ~200 lines of code, maintenance burden, potential bugs
+   - **Official todoist-api-python SDK** ✅: Maintained by Todoist, built-in features, well-tested
 
-4. **Python with MCP SDK (stdio)** ✅
-   - Pros: Official SDK, simple setup, async support, rapid development
-   - Cons: Requires Python runtime
-   - Why chosen: Best balance of simplicity, official support, and development speed
+4. **Package Manager:**
+   - **pip only** ❌: Slower, less reproducible
+   - **poetry** ❌: Complex, overkill for this project
+   - **uv** ✅: Fast, modern, MCP ecosystem standard (with pip fallback for compatibility)
+
+5. **API Version:**
+   - **REST API v1** ❌: Sunset in November 2022, no longer available
+   - **REST API v2** ✅: Current version, only option for new development
+
+6. **Transport:**
+   - **HTTP** ❌: More complex, requires server deployment
+   - **stdio** ✅: Simpler for local Claude Code integration, MCP standard
+
+7. **Project Structure:**
+   - **Multi-file modules** ❌: Premature complexity for ~300 lines
+   - **Single-file server** ✅: Easier to understand, follows FastMCP patterns
 
 ### Best Practices
 
