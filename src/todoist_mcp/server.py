@@ -4,6 +4,7 @@ An MCP server that enables AI agents to manage Todoist tasks through natural
 language commands.
 """
 
+import asyncio
 import logging
 import os
 import sys
@@ -38,6 +39,16 @@ if not API_TOKEN:
 
 todoist = TodoistAPIAsync(API_TOKEN)
 logger.info(f"Todoist MCP Server initialized with log level: {LOG_LEVEL}")
+
+# Rate limit retry configuration
+ENABLE_RETRY = os.getenv("TODOIST_ENABLE_RETRY", "false").lower() == "true"
+MAX_RETRIES = int(os.getenv("TODOIST_MAX_RETRIES", "3"))
+RETRY_BASE_DELAY = float(os.getenv("TODOIST_RETRY_BASE_DELAY", "2.0"))
+
+logger.info(
+    f"Rate limit retry: enabled={ENABLE_RETRY} max_retries={MAX_RETRIES} "
+    f"base_delay={RETRY_BASE_DELAY}s"
+)
 
 
 # Validation helper functions
@@ -129,6 +140,68 @@ def validate_non_empty_string(value: str, param_name: str) -> Optional[str]:
     return None
 
 
+def is_rate_limit_error(error: Exception) -> bool:
+    """Check if an exception is a rate limit error (HTTP 429).
+
+    The todoist-api-python library raises exceptions on API errors.
+    This function detects rate limit errors by checking for:
+    - HTTP 429 status code in error message
+    - "rate limit" keywords
+    - "too many requests" keywords
+
+    Args:
+        error: Exception to check
+
+    Returns:
+        True if rate limit error, False otherwise
+    """
+    error_str = str(error).lower()
+    return (
+        "429" in str(error)
+        or "rate limit" in error_str
+        or "too many requests" in error_str
+    )
+
+
+async def retry_with_backoff(
+    func, max_retries: int, base_delay: float, *args, **kwargs
+):
+    """Retry async function with exponential backoff on rate limit errors.
+
+    This helper implements exponential backoff for rate limit errors:
+    - 1st retry: wait base_delay seconds (default: 2s)
+    - 2nd retry: wait base_delay * 2 seconds (default: 4s)
+    - 3rd retry: wait base_delay * 4 seconds (default: 8s)
+    - etc.
+
+    Args:
+        func: Async function to retry
+        max_retries: Maximum number of retry attempts
+        base_delay: Base delay in seconds (will be exponentially increased)
+        *args, **kwargs: Arguments to pass to func
+
+    Returns:
+        Result from func
+
+    Raises:
+        Exception if max retries exceeded or non-rate-limit error occurs
+    """
+    for attempt in range(max_retries + 1):
+        try:
+            return await func(*args, **kwargs)
+        except Exception as e:
+            if is_rate_limit_error(e) and attempt < max_retries:
+                wait_time = base_delay * (2**attempt)
+                logger.warning(
+                    f"Rate limit hit (attempt {attempt + 1}/{max_retries + 1}), "
+                    f"retrying in {wait_time}s - error={str(e)}"
+                )
+                await asyncio.sleep(wait_time)
+            else:
+                # Re-raise if not rate limit error or max retries exceeded
+                raise
+
+
 @mcp.tool()
 async def todoist_get_tasks(
     project_id: Optional[str] = None,
@@ -190,6 +263,19 @@ async def todoist_get_tasks(
 
         return result
     except Exception as e:
+        # Check for rate limit error and provide helpful message
+        if is_rate_limit_error(e):
+            logger.warning(
+                f"Rate limit exceeded - tool=todoist_get_tasks "
+                f"project_id={project_id!r} label={label!r}"
+            )
+            return (
+                "Error: Todoist API rate limit exceeded. "
+                "Please wait a few minutes and try again. "
+                "(Standard plans: ~450 requests per 15 minutes)"
+            )
+
+        # Generic error handling
         logger.error(
             f"Failed to get tasks - project_id={project_id!r} label={label!r} "
             f"error={str(e)}",
@@ -256,6 +342,19 @@ async def todoist_create_task(
         )
         return f"✓ Task created: {task.content} (ID: {task.id})"
     except Exception as e:
+        # Check for rate limit error
+        if is_rate_limit_error(e):
+            logger.warning(
+                f"Rate limit exceeded - tool=todoist_create_task "
+                f"content={content!r}"
+            )
+            return (
+                "Error: Todoist API rate limit exceeded. "
+                "Please wait a few minutes and try again. "
+                "(Standard plans: ~450 requests per 15 minutes)"
+            )
+
+        # Generic error handling
         logger.error(
             f"Failed to create task - content={content!r} error={str(e)}",
             exc_info=True,
@@ -319,6 +418,19 @@ async def todoist_update_task(
             logger.warning(f"Failed to update task - task_id={task_id!r}")
             return f"Failed to update task {task_id}"
     except Exception as e:
+        # Check for rate limit error
+        if is_rate_limit_error(e):
+            logger.warning(
+                f"Rate limit exceeded - tool=todoist_update_task "
+                f"task_id={task_id!r}"
+            )
+            return (
+                "Error: Todoist API rate limit exceeded. "
+                "Please wait a few minutes and try again. "
+                "(Standard plans: ~450 requests per 15 minutes)"
+            )
+
+        # Generic error handling
         logger.error(
             f"Failed to update task - task_id={task_id!r} error={str(e)}",
             exc_info=True,
@@ -353,6 +465,19 @@ async def todoist_complete_task(task_id: str) -> str:
             logger.warning(f"Failed to complete task - task_id={task_id!r}")
             return f"Failed to complete task {task_id}"
     except Exception as e:
+        # Check for rate limit error
+        if is_rate_limit_error(e):
+            logger.warning(
+                f"Rate limit exceeded - tool=todoist_complete_task "
+                f"task_id={task_id!r}"
+            )
+            return (
+                "Error: Todoist API rate limit exceeded. "
+                "Please wait a few minutes and try again. "
+                "(Standard plans: ~450 requests per 15 minutes)"
+            )
+
+        # Generic error handling
         logger.error(
             f"Failed to complete task - task_id={task_id!r} error={str(e)}",
             exc_info=True,
@@ -387,6 +512,19 @@ async def todoist_delete_task(task_id: str) -> str:
             logger.warning(f"Failed to delete task - task_id={task_id!r}")
             return f"Failed to delete task {task_id}"
     except Exception as e:
+        # Check for rate limit error
+        if is_rate_limit_error(e):
+            logger.warning(
+                f"Rate limit exceeded - tool=todoist_delete_task "
+                f"task_id={task_id!r}"
+            )
+            return (
+                "Error: Todoist API rate limit exceeded. "
+                "Please wait a few minutes and try again. "
+                "(Standard plans: ~450 requests per 15 minutes)"
+            )
+
+        # Generic error handling
         logger.error(
             f"Failed to delete task - task_id={task_id!r} error={str(e)}",
             exc_info=True,
@@ -424,6 +562,16 @@ async def todoist_get_projects() -> str:
 
         return result
     except Exception as e:
+        # Check for rate limit error
+        if is_rate_limit_error(e):
+            logger.warning("Rate limit exceeded - tool=todoist_get_projects")
+            return (
+                "Error: Todoist API rate limit exceeded. "
+                "Please wait a few minutes and try again. "
+                "(Standard plans: ~450 requests per 15 minutes)"
+            )
+
+        # Generic error handling
         logger.error(f"Failed to get projects - error={str(e)}", exc_info=True)
         return f"Error fetching projects: {str(e)}"
 
@@ -456,6 +604,16 @@ async def todoist_get_labels() -> str:
 
         return result
     except Exception as e:
+        # Check for rate limit error
+        if is_rate_limit_error(e):
+            logger.warning("Rate limit exceeded - tool=todoist_get_labels")
+            return (
+                "Error: Todoist API rate limit exceeded. "
+                "Please wait a few minutes and try again. "
+                "(Standard plans: ~450 requests per 15 minutes)"
+            )
+
+        # Generic error handling
         logger.error(f"Failed to get labels - error={str(e)}", exc_info=True)
         return f"Error fetching labels: {str(e)}"
 
