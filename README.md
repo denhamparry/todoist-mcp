@@ -1,139 +1,250 @@
-# Claude Code Project Template
+# Todoist MCP Server
 
-A GitHub template repository that provides a standardized, fully-configured foundation for new projects developed with Claude Code. Includes built-in support for Test-Driven Development (TDD), automated code quality checks, and AI-assisted workflows.
+An MCP (Model Context Protocol) server that enables AI agents to manage Todoist tasks through natural language commands.
 
-## 🚀 Quick Start
+## Features
 
-### 1. Create Your Project
+- Create, read, update, and delete tasks
+- Manage projects and labels
+- Natural language due dates (e.g., "tomorrow", "next Monday at 3pm")
+- Priority and label support
+- Complete task workflow integration
 
-Click the **"Use this template"** button above to create a new repository from this template.
+## Installation
 
-### 2. Clone and Setup
+### Prerequisites
+
+- Python 3.10 or later
+- A Todoist account and API token
+
+### Setup
+
+1. Clone the repository:
 
 ```bash
-# Clone your new repository
-git clone https://github.com/your-username/your-new-project.git
-cd your-new-project
-
-# Open Claude Code
-claude
+git clone https://github.com/denhamparry/todoist-mcp.git
+cd todoist-mcp
 ```
 
-### 3. Run the Setup Wizard
+2. Install dependencies using one of the following methods:
 
-In Claude Code, run:
+**Option A: Using `uv` (Recommended - Fast and Modern)**
+
+```bash
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies
+uv sync
+
+# Install development dependencies
+uv sync --dev
+```
+
+**Option B: Using `pip` (Traditional)**
+
+```bash
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install package and dependencies
+pip install -e ".[dev]"
+```
+
+3. Create a `.env` file with your Todoist API token:
+
+```bash
+cp .env.example .env
+# Edit .env and add your token
+```
+
+4. Get your API token from Todoist:
+   - Visit: <https://todoist.com/help/articles/find-your-api-token-Jpzx9IIlB>
+   - Copy your API token
+   - Paste it into `.env` file
+
+## Usage with Claude Code
+
+Add the following to your Claude Code MCP settings configuration:
+
+```json
+{
+  "mcpServers": {
+    "todoist": {
+      "command": "python",
+      "args": ["-m", "todoist_mcp.server"],
+      "env": {
+        "TODOIST_API_TOKEN": "your_token_here"
+      }
+    }
+  }
+}
+```
+
+Or if using `uv`:
+
+```json
+{
+  "mcpServers": {
+    "todoist": {
+      "command": "uv",
+      "args": ["run", "todoist-mcp"],
+      "env": {
+        "TODOIST_API_TOKEN": "your_token_here"
+      }
+    }
+  }
+}
+```
+
+## Available Tools
+
+### Task Management
+
+- **`todoist_get_tasks`** - Retrieve tasks with optional filtering
+  - Filter by project, label, or use Todoist filter queries
+  - Returns formatted list with IDs, due dates, priorities, and labels
+
+- **`todoist_create_task`** - Create new tasks
+  - Support for natural language due dates
+  - Set priority, labels, project, and description
+  - Returns task ID for further operations
+
+- **`todoist_update_task`** - Update existing tasks
+  - Modify content, description, due date, priority, or labels
+  - Requires task ID
+
+- **`todoist_complete_task`** - Mark tasks as complete
+  - Simple completion with task ID
+
+- **`todoist_delete_task`** - Delete tasks permanently
+  - Requires task ID
+
+### Organization
+
+- **`todoist_get_projects`** - List all projects
+  - Shows project IDs and names
+  - Indicates favorite projects
+
+- **`todoist_get_labels`** - List all labels
+  - Shows label IDs and names
+
+## Examples
+
+Ask Claude Code:
+
+- "Show me all my tasks due today"
+- "Create a task to review the PR tomorrow with high priority"
+- "Complete the task with ID 12345"
+- "What projects do I have?"
+- "Create a task 'Buy groceries' due next Monday with label 'personal'"
+- "Update task 67890 to be urgent priority"
+
+## Development
+
+### Running Tests
+
+```bash
+# Using uv
+uv run pytest
+
+# Using pip (with activated venv)
+pytest
+
+# With coverage report
+pytest --cov=src/todoist_mcp --cov-report=html
+```
+
+### Code Quality
+
+```bash
+# Run pre-commit hooks
+pre-commit install
+pre-commit run --all-files
+
+# Format code
+black src/ tests/
+isort src/ tests/
+
+# Type checking
+mypy src/
+```
+
+### Testing the Server
+
+```bash
+# Using uv
+uv run python -m todoist_mcp.server
+
+# Using pip
+python -m todoist_mcp.server
+
+# Test with MCP inspector (if available)
+npx @modelcontextprotocol/inspector python -m todoist_mcp.server
+```
+
+## Architecture
+
+The server uses:
+
+- **FastMCP** - High-level MCP SDK for simple tool definition
+- **todoist-api-python** - Official Todoist Python SDK
+- **stdio transport** - Communication over standard input/output
+- **Async/await** - Efficient concurrent operations
+
+## Project Structure
 
 ```text
-/setup-repo
+todoist-mcp/
+├── src/
+│   └── todoist_mcp/
+│       ├── __init__.py
+│       └── server.py         # Complete MCP server implementation
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py           # Pytest fixtures
+│   ├── test_server.py        # Unit tests
+│   └── test_integration.py   # Integration tests
+├── docs/
+│   ├── api.md                # Tool API documentation
+│   └── setup.md              # Development setup guide
+├── pyproject.toml            # Project configuration
+├── .env.example              # Environment template
+├── .pre-commit-config.yaml   # Code quality hooks
+└── README.md                 # This file
 ```
 
-The interactive wizard will:
+## Contributing
 
-- ✅ Gather your project information (name, tech stack, commands)
-- ✅ Customize configuration files for your specific project
-- ✅ Configure pre-commit hooks for your language
-- ✅ Set up automated GitHub PR reviews
-- ✅ Install and verify all configurations
+1. Follow TDD principles - write tests first
+2. Run pre-commit hooks before committing
+3. Ensure test coverage stays above 80%
+4. Update documentation for new features
+5. Use conventional commit messages
 
-### 4. Start Building
+## Security
 
-```bash
-# Commit the configured files
-git add .
-git commit -m "chore: configure Claude Code for project"
+- Never commit API tokens to version control
+- Use `.env` file for sensitive credentials
+- `.env` is included in `.gitignore`
+- Review `.env.example` for required variables
 
-# Start developing with TDD!
-```
+## License
 
-## 📦 What's Included
+MIT
 
-### Core Configuration
+## Support
 
-- **`CLAUDE.md`** - Project context for Claude Code with TDD guidelines
-- **`docs/setup.md`** - Comprehensive setup checklist and best practices
-- **`.pre-commit-config.yaml`** - Code quality hooks (formatting, linting, security)
-- **`.github/claude-code-review.yml`** - Automated PR review configuration
+- **Issues**: <https://github.com/denhamparry/todoist-mcp/issues>
+- **Todoist API Docs**: <https://developer.todoist.com/rest/v2/>
+- **MCP Specification**: <https://modelcontextprotocol.io/>
+- **Claude Code**: <https://docs.claude.com/en/docs/claude-code>
 
-### Custom Slash Commands
+## Acknowledgments
 
-Located in `.claude/commands/`:
+Built with:
 
-- **`/setup-repo`** - Interactive setup wizard (run this first!)
-- **`/review`** - Comprehensive code review (quality, tests, security, performance)
-- **`/tdd-check`** - Verify TDD workflow compliance
-- **`/precommit`** - Run pre-commit hooks on all files
-
-## 🎯 Key Features
-
-### Test-Driven Development (TDD)
-
-This template enforces TDD workflow:
-
-1. **Red** - Write a failing test first
-2. **Green** - Write minimal code to make it pass
-3. **Refactor** - Improve code while keeping tests green
-
-Use `/tdd-check` to verify you're following TDD principles.
-
-### Automated Code Quality
-
-- Pre-commit hooks for consistent formatting and linting
-- Secret detection to prevent credential leaks
-- Language-specific quality checks (Python, Go, JavaScript/TypeScript)
-- Automated PR reviews with Claude Code
-
-### Claude Code Optimized
-
-- Project-specific context in CLAUDE.md
-- Custom slash commands for common workflows
-- Automated PR reviews configured out of the box
-- Best practices built into the template
-
-## 🛠️ Supported Languages
-
-The template is language-agnostic but includes pre-configured hooks for:
-
-- **Python** - Black, Flake8, isort
-- **Go** - gofmt, go vet, go imports
-- **JavaScript/TypeScript** - Prettier, ESLint
-- **Generic** - File formatting, YAML/JSON validation, secret detection
-
-Simply uncomment the relevant hooks in `.pre-commit-config.yaml` during setup.
-
-## 📚 Documentation
-
-- **`CLAUDE.md`** - Main project context for Claude Code
-- **`docs/setup.md`** - Detailed setup instructions and best practices
-- **`.claude/commands/`** - Custom command documentation
-
-## 🔧 Manual Setup (Alternative)
-
-If you prefer not to use the interactive wizard, follow the manual checklist in `docs/setup.md`.
-
-## 🤝 Contributing to the Template
-
-To improve this template:
-
-1. Make your changes
-2. Test with a new project
-3. Update documentation
-4. Submit a PR
-
-## 📝 License
-
-[Add your license here]
-
-## 🙋 Support
-
-For issues with:
-
-- **This template**: Open an issue in this repository
-- **Claude Code**: Visit <https://docs.claude.com/en/docs/claude-code>
-- **Feedback**: <https://github.com/anthropics/claude-code/issues>
-
----
-
-**Template Version:** 1.0
-**Last Updated:** 2025-10-02
-
-Built with ❤️ for Claude Code development
+- [Model Context Protocol](https://modelcontextprotocol.io/) by Anthropic
+- [Todoist API](https://developer.todoist.com/) by Doist
+- [todoist-api-python](https://github.com/Doist/todoist-api-python) - Official Python SDK

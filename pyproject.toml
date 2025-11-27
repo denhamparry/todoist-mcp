@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "todoist-mcp"
+version = "0.1.0"
+description = "MCP server for Todoist task management"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.22.0",
+    "todoist-api-python>=2.1.9",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "pytest-httpx>=0.30.0",
+    "black>=24.0.0",
+    "isort>=5.13.0",
+    "flake8>=7.0.0",
+    "mypy>=1.11.0",
+]
+
+[project.scripts]
+todoist-mcp = "todoist_mcp.server:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+asyncio_mode = "auto"
+addopts = "--cov=src/todoist_mcp --cov-report=term-missing --cov-fail-under=80"
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"

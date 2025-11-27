@@ -1,7 +1,7 @@
 # GitHub Issue #1: Create Todoist MCP Server
 
 **Issue:** [#1](https://github.com/denhamparry/todoist-mcp/issues/1)
-**Status:** Open
+**Status:** Complete
 **Date:** 2025-11-27
 **Labels:** documentation, enhancement, mcp-server, integration
 
