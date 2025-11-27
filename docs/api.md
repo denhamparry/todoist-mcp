@@ -11,7 +11,7 @@ Retrieve tasks from Todoist with optional filtering.
 **Parameters:**
 
 - `project_id` (string, optional): Filter tasks by project ID
-- `filter` (string, optional): Todoist filter query (e.g., "today", "p1", "overdue")
+- `label` (string, optional): Filter tasks by label name
 
 **Returns:** Formatted string containing list of tasks
 
@@ -261,38 +261,6 @@ Found 5 label(s):
 "Show me all label IDs"
 ```
 
-## Filter Query Syntax
-
-When using `todoist_get_tasks` with the `filter` parameter, you can use Todoist's powerful filter syntax:
-
-### Common Filters
-
-- `today` - Tasks due today
-- `tomorrow` - Tasks due tomorrow
-- `overdue` - Overdue tasks
-- `no date` - Tasks without a due date
-- `p1` - Priority 1 (urgent) tasks
-- `p2` - Priority 2 (high) tasks
-- `p3` - Priority 3 (medium) tasks
-- `@label` - Tasks with specific label
-- `#project` - Tasks in specific project
-
-### Examples
-
-```text
-# Today's tasks
-filter: "today"
-
-# Urgent tasks due today
-filter: "today & p1"
-
-# Work tasks without a due date
-filter: "@work & no date"
-
-# All high priority tasks
-filter: "p2 | p1"
-```
-
 ## Error Handling
 
 All tools return error messages in a user-friendly format when operations fail:
@@ -346,49 +314,14 @@ When rate limits are exceeded, the server will:
    (Standard plans: ~450 requests per 15 minutes)
    ```
 
-3. **Log** rate limit events for monitoring
-4. **Optionally retry** with exponential backoff (if enabled)
-
-### Enabling Automatic Retry (Optional)
-
-To enable automatic retry with exponential backoff, set these environment variables:
-
-```bash
-# Enable retry on rate limit errors
-TODOIST_ENABLE_RETRY=true
-
-# Maximum number of retry attempts (default: 3)
-TODOIST_MAX_RETRIES=3
-
-# Base delay in seconds for exponential backoff (default: 2.0)
-# Delays: 2s, 4s, 8s, 16s, etc.
-TODOIST_RETRY_BASE_DELAY=2.0
-```
-
-**MCP Configuration:**
-
-```json
-{
-  "mcpServers": {
-    "todoist": {
-      "command": "uv",
-      "args": ["run", "todoist-mcp"],
-      "env": {
-        "TODOIST_API_TOKEN": "your_token_here",
-        "TODOIST_ENABLE_RETRY": "true",
-        "TODOIST_MAX_RETRIES": "3"
-      }
-    }
-  }
-}
-```
+3. **Log** rate limit events at WARNING level for monitoring
 
 ### Best Practices for Rate Limits
 
-1. **Cache results** when possible to reduce API calls
-2. **Batch operations** instead of individual calls
-3. **Monitor rate limit headers** to track usage
-4. **Enable retry logic** for production use
+1. **Wait before retrying** - If you receive a rate limit error, wait a few minutes before trying again
+2. **Cache results** when possible to reduce API calls
+3. **Batch operations** instead of individual calls
+4. **Monitor rate limit headers** to track usage
 5. **Space out requests** to avoid hitting limits
 
 ## Security Notes

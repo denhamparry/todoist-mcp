@@ -1,9 +1,11 @@
 # GitHub Issue #8: Implement rate limit handling for Todoist API
 
 **Issue:** [#8](https://github.com/denhamparry/todoist-mcp/issues/8)
-**Status:** Complete
+**PR:** [#15](https://github.com/denhamparry/todoist-mcp/pull/15)
+**Status:** Complete (PR Feedback Addressed)
 **Priority:** Nice to have - Future improvement
 **Date:** 2025-11-27
+**Last Updated:** 2025-11-27 (PR Feedback)
 
 ## Problem Statement
 
@@ -1031,9 +1033,107 @@ None - Nice to have feature
 - Future: Request throttling to prevent rate limits proactively
 - Future: Rate limit usage tracking and alerting
 
+## PR Feedback Updates (2025-11-27)
+
+### Changes Made Based on PR #15 Code Review
+
+**Reviewer:** @claude (via GitHub Actions)
+**Review Date:** 2025-11-27
+
+#### Issues Identified
+
+1. **Unused retry configuration** - Environment variables and retry logic defined but never actually used
+2. **Documentation inconsistencies** - `filter` parameter documented but not implemented
+3. **Async generator pattern** - Verification needed for correctness
+
+#### Changes Implemented
+
+**1. Removed Unused Retry Logic (High Priority)**
+
+- **Issue:** `ENABLE_RETRY`, `MAX_RETRIES`, `RETRY_BASE_DELAY` configuration defined but never used
+- **Issue:** `retry_with_backoff()` function defined but never called from any tool
+- **Decision:** Remove unused code rather than implement incomplete feature
+- **Rationale:**
+  - Rate limit detection and error messages already working well
+  - Retry logic would require significant refactoring for async generators
+  - Marked as "Optional" and "Medium Priority" in original plan
+  - Can be added later as separate enhancement when needed
+
+**Changes:**
+
+- Removed retry configuration variables (lines 43-51 in server.py)
+- Removed `retry_with_backoff()` helper function (lines 166-203 in server.py)
+- Removed unused `asyncio` import
+- Removed 4 retry-related tests from test suite (lines 910-994 in test_server.py)
+
+**2. Fixed Documentation Inconsistencies (High Priority)**
+
+- **Issue:** `docs/api.md` documented `filter` parameter that doesn't exist in implementation
+- **Issue:** Entire "Filter Query Syntax" section described non-existent feature
+- **Issue:** Documentation promised retry feature that wasn't functional
+
+**Changes:**
+
+- Updated `todoist_get_tasks` parameters to show actual `label` parameter instead of `filter`
+- Removed "Filter Query Syntax" section (lines 264-294)
+- Removed retry configuration documentation
+- Updated rate limit handling docs to reflect actual behavior
+- Simplified best practices section
+
+**3. Verified Async Generator Pattern (Medium Priority)**
+
+- **Issue:** PR review questioned if async generator consumption was correct
+- **Investigation:** Checked `todoist-api-python` library signature
+  - Confirmed: `get_tasks()` returns `AsyncGenerator[list[Task]]`
+  - Pattern is correct: awaits generator, then iterates with `async for`
+- **Result:** No changes needed, pattern is correct
+
+#### Test Results
+
+- **All 57 tests pass** ✅
+- **95% code coverage maintained** ✅
+- Removed 4 retry tests (no longer needed)
+- All rate limit detection and error handling tests still passing
+
+#### Documentation Updates
+
+**Files Modified:**
+
+1. `src/todoist_mcp/server.py` - Removed unused retry code
+2. `tests/test_server.py` - Removed retry tests
+3. `docs/api.md` - Fixed parameter docs and removed non-existent features
+
+**Impact:**
+
+- **Cleaner codebase** - No unused configuration or dead code
+- **Accurate documentation** - Docs match actual implementation
+- **Maintained coverage** - 95% test coverage preserved
+- **No breaking changes** - Rate limit detection and error messages still work
+
+#### Future Enhancements
+
+If retry logic is needed in the future:
+
+1. Implement as separate feature/PR
+2. Design for async generator compatibility
+3. Add configuration and comprehensive tests
+4. Update documentation before implementation
+
+#### Verdict
+
+All PR feedback issues addressed successfully:
+
+- ✅ Removed unused retry configuration and code
+- ✅ Fixed documentation to match implementation
+- ✅ Verified async generator pattern is correct
+- ✅ All tests passing with 95% coverage
+
+**Status:** Ready for re-review
+
 ## References
 
 - [GitHub Issue #8](https://github.com/denhamparry/todoist-mcp/issues/8)
+- [Pull Request #15](https://github.com/denhamparry/todoist-mcp/pull/15)
 - [Todoist API Documentation](https://developer.todoist.com/rest/v2/)
 - [Todoist API Rate Limits](https://developer.todoist.com/rest/v2/#rate-limits)
 - [todoist-api-python Library](https://github.com/Doist/todoist-api-python)
