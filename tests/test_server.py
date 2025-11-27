@@ -501,3 +501,156 @@ async def test_todoist_get_labels_multiple(mock_api_token, monkeypatch):
     assert "[11111] urgent" in result
     assert "[22222] work" in result
     assert "[33333] personal" in result
+
+
+# Validation error tests
+
+
+@pytest.mark.asyncio
+async def test_create_task_invalid_priority_out_of_range(mock_api_token):
+    """Test todoist_create_task with priority out of range"""
+    from todoist_mcp.server import todoist_create_task
+
+    result = await todoist_create_task(content="Test task", priority=5)
+
+    assert result == "Error: Priority must be between 1 and 4 (received: 5)"
+
+
+@pytest.mark.asyncio
+async def test_create_task_invalid_priority_zero(mock_api_token):
+    """Test todoist_create_task with priority zero"""
+    from todoist_mcp.server import todoist_create_task
+
+    result = await todoist_create_task(content="Test task", priority=0)
+
+    assert result == "Error: Priority must be between 1 and 4 (received: 0)"
+
+
+@pytest.mark.asyncio
+async def test_create_task_invalid_priority_negative(mock_api_token):
+    """Test todoist_create_task with negative priority"""
+    from todoist_mcp.server import todoist_create_task
+
+    result = await todoist_create_task(content="Test task", priority=-1)
+
+    assert result == "Error: Priority must be between 1 and 4 (received: -1)"
+
+
+@pytest.mark.asyncio
+async def test_update_task_invalid_priority(mock_api_token):
+    """Test todoist_update_task with invalid priority"""
+    from todoist_mcp.server import todoist_update_task
+
+    result = await todoist_update_task(task_id="12345", priority=10)
+
+    assert result == "Error: Priority must be between 1 and 4 (received: 10)"
+
+
+@pytest.mark.asyncio
+async def test_update_task_empty_task_id(mock_api_token):
+    """Test todoist_update_task with empty task_id"""
+    from todoist_mcp.server import todoist_update_task
+
+    result = await todoist_update_task(task_id="", content="Updated")
+
+    assert result == "Error: Task ID is required and cannot be empty"
+
+
+@pytest.mark.asyncio
+async def test_update_task_whitespace_task_id(mock_api_token):
+    """Test todoist_update_task with whitespace-only task_id"""
+    from todoist_mcp.server import todoist_update_task
+
+    result = await todoist_update_task(task_id="   ", content="Updated")
+
+    assert result == "Error: Task ID is required and cannot be empty"
+
+
+@pytest.mark.asyncio
+async def test_complete_task_empty_task_id(mock_api_token):
+    """Test todoist_complete_task with empty task_id"""
+    from todoist_mcp.server import todoist_complete_task
+
+    result = await todoist_complete_task(task_id="")
+
+    assert result == "Error: Task ID is required and cannot be empty"
+
+
+@pytest.mark.asyncio
+async def test_delete_task_empty_task_id(mock_api_token):
+    """Test todoist_delete_task with empty task_id"""
+    from todoist_mcp.server import todoist_delete_task
+
+    result = await todoist_delete_task(task_id="")
+
+    assert result == "Error: Task ID is required and cannot be empty"
+
+
+@pytest.mark.asyncio
+async def test_get_tasks_empty_project_id(mock_api_token):
+    """Test todoist_get_tasks with empty project_id"""
+    from todoist_mcp.server import todoist_get_tasks
+
+    result = await todoist_get_tasks(project_id="")
+
+    assert result == "Error: Project ID cannot be empty"
+
+
+@pytest.mark.asyncio
+async def test_get_tasks_empty_label_filter(mock_api_token):
+    """Test todoist_get_tasks with empty label filter"""
+    from todoist_mcp.server import todoist_get_tasks
+
+    result = await todoist_get_tasks(label="")
+
+    assert result == "Error: Label filter cannot be empty"
+
+
+@pytest.mark.asyncio
+async def test_create_task_empty_project_id(mock_api_token):
+    """Test todoist_create_task with empty project_id"""
+    from todoist_mcp.server import todoist_create_task
+
+    result = await todoist_create_task(content="Test", project_id="")
+
+    assert result == "Error: Project ID cannot be empty"
+
+
+@pytest.mark.asyncio
+async def test_create_task_empty_content(mock_api_token):
+    """Test todoist_create_task with empty content"""
+    from todoist_mcp.server import todoist_create_task
+
+    result = await todoist_create_task(content="")
+
+    assert result == "Error: Content is required and cannot be empty"
+
+
+@pytest.mark.asyncio
+async def test_create_task_whitespace_content(mock_api_token):
+    """Test todoist_create_task with whitespace-only content"""
+    from todoist_mcp.server import todoist_create_task
+
+    result = await todoist_create_task(content="   ")
+
+    assert result == "Error: Content is required and cannot be empty"
+
+
+@pytest.mark.asyncio
+async def test_create_task_labels_with_empty_string(mock_api_token):
+    """Test todoist_create_task with empty string in labels list"""
+    from todoist_mcp.server import todoist_create_task
+
+    result = await todoist_create_task(content="Test", labels=["urgent", "", "work"])
+
+    assert "Error: Label at index 1 cannot be empty" in result
+
+
+@pytest.mark.asyncio
+async def test_update_task_invalid_labels(mock_api_token):
+    """Test todoist_update_task with invalid labels"""
+    from todoist_mcp.server import todoist_update_task
+
+    result = await todoist_update_task(task_id="12345", labels=["", "work"])
+
+    assert "Error: Label at index 0 cannot be empty" in result

@@ -25,6 +25,95 @@ if not API_TOKEN:
 todoist = TodoistAPIAsync(API_TOKEN)
 
 
+# Validation helper functions
+
+
+def validate_priority(priority: Optional[int]) -> Optional[str]:
+    """Validate priority parameter (1-4).
+
+    Args:
+        priority: Priority value to validate (1=normal, 2=medium, 3=high, 4=urgent)
+
+    Returns:
+        Error message if invalid, None if valid
+    """
+    if priority is not None:
+        if not isinstance(priority, int):
+            return (
+                f"Error: Priority must be an integer "
+                f"(received: {type(priority).__name__})"
+            )
+        if not (1 <= priority <= 4):
+            return f"Error: Priority must be between 1 and 4 (received: {priority})"
+    return None
+
+
+def validate_task_id(task_id: str) -> Optional[str]:
+    """Validate task_id parameter (non-empty string).
+
+    Args:
+        task_id: Task ID to validate
+
+    Returns:
+        Error message if invalid, None if valid
+    """
+    if not task_id or not task_id.strip():
+        return "Error: Task ID is required and cannot be empty"
+    return None
+
+
+def validate_project_id(project_id: Optional[str]) -> Optional[str]:
+    """Validate project_id parameter (non-empty string if provided).
+
+    Args:
+        project_id: Project ID to validate
+
+    Returns:
+        Error message if invalid, None if valid
+    """
+    if project_id is not None and (not project_id or not project_id.strip()):
+        return "Error: Project ID cannot be empty"
+    return None
+
+
+def validate_labels(labels: Optional[List[str]]) -> Optional[str]:
+    """Validate labels parameter (list of non-empty strings).
+
+    Args:
+        labels: List of label names to validate
+
+    Returns:
+        Error message if invalid, None if valid
+    """
+    if labels is not None:
+        if not isinstance(labels, list):
+            return f"Error: Labels must be a list (received: {type(labels).__name__})"
+        for idx, label in enumerate(labels):
+            if not isinstance(label, str):
+                return (
+                    f"Error: Label at index {idx} must be a string "
+                    f"(received: {type(label).__name__})"
+                )
+            if not label or not label.strip():
+                return f"Error: Label at index {idx} cannot be empty"
+    return None
+
+
+def validate_non_empty_string(value: str, param_name: str) -> Optional[str]:
+    """Validate that a required string parameter is non-empty.
+
+    Args:
+        value: String value to validate
+        param_name: Name of the parameter (for error message)
+
+    Returns:
+        Error message if invalid, None if valid
+    """
+    if not value or not value.strip():
+        return f"Error: {param_name} is required and cannot be empty"
+    return None
+
+
 @mcp.tool()
 async def todoist_get_tasks(
     project_id: Optional[str] = None,
@@ -39,6 +128,12 @@ async def todoist_get_tasks(
     Returns:
         Formatted list of tasks with IDs, content, due dates, and priorities
     """
+    # Validation
+    if error := validate_project_id(project_id):
+        return error
+    if label is not None and (not label or not label.strip()):
+        return "Error: Label filter cannot be empty"
+
     try:
         # Get the async generator and consume it to get the list of tasks
         tasks = []
@@ -94,6 +189,16 @@ async def todoist_create_task(
     Returns:
         Success message with task ID
     """
+    # Validation
+    if error := validate_non_empty_string(content, "Content"):
+        return error
+    if error := validate_priority(priority):
+        return error
+    if error := validate_project_id(project_id):
+        return error
+    if error := validate_labels(labels):
+        return error
+
     try:
         task = await todoist.add_task(
             content=content,
@@ -130,6 +235,14 @@ async def todoist_update_task(
     Returns:
         Success message
     """
+    # Validation
+    if error := validate_task_id(task_id):
+        return error
+    if error := validate_priority(priority):
+        return error
+    if error := validate_labels(labels):
+        return error
+
     try:
         success = await todoist.update_task(
             task_id=task_id,
@@ -157,6 +270,10 @@ async def todoist_complete_task(task_id: str) -> str:
     Returns:
         Success message
     """
+    # Validation
+    if error := validate_task_id(task_id):
+        return error
+
     try:
         success = await todoist.complete_task(task_id=task_id)
         if success:
@@ -177,6 +294,10 @@ async def todoist_delete_task(task_id: str) -> str:
     Returns:
         Success message
     """
+    # Validation
+    if error := validate_task_id(task_id):
+        return error
+
     try:
         success = await todoist.delete_task(task_id=task_id)
         if success:
