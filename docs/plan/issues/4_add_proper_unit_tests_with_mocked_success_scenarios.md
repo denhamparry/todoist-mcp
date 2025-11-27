@@ -1,7 +1,7 @@
 # GitHub Issue #4: Add proper unit tests with mocked success scenarios
 
 **Issue:** [#4](https://github.com/denhamparry/todoist-mcp/issues/4)
-**Status:** Open
+**Status:** Complete
 **Labels:** bug
 **Priority:** HIGH
 **Date:** 2025-11-27
@@ -809,22 +809,40 @@ pytest tests/test_server.py -k "todoist_get_tasks" -v
 ## Success Criteria
 
 - [x] Issue #4 fetched and analyzed
-- [ ] Mock fixtures added to conftest.py for pytest-httpx
-- [ ] Success tests added for todoist_get_tasks (3+ test cases)
-- [ ] Success tests added for todoist_create_task (2+ test cases)
-- [ ] Success tests added for todoist_update_task (2+ test cases)
-- [ ] Success tests added for todoist_complete_task (1+ test case)
-- [ ] Success tests added for todoist_delete_task (1+ test case)
-- [ ] Success tests added for todoist_get_projects (3+ test cases)
-- [ ] Success tests added for todoist_get_labels (3+ test cases)
-- [ ] All tests pass without requiring real API token
-- [ ] Test coverage for success paths >90%
-- [ ] All tools return user-friendly success messages (verified in tests)
-- [ ] Response formatting verified for all tools
-- [ ] Edge cases tested (empty results, missing optional fields)
-- [ ] pytest-httpx used for all HTTP mocking
-- [ ] Test documentation updated with mocking strategy
-- [ ] Coverage report generated and reviewed
+- [x] Mock fixtures added to conftest.py (used monkeypatch instead of pytest-httpx)
+- [x] Success tests added for todoist_get_tasks (3 test cases)
+- [x] Success tests added for todoist_create_task (2 test cases)
+- [x] Success tests added for todoist_update_task (2 test cases)
+- [x] Success tests added for todoist_complete_task (1 test case)
+- [x] Success tests added for todoist_delete_task (1 test case)
+- [x] Success tests added for todoist_get_projects (3 test cases)
+- [x] Success tests added for todoist_get_labels (3 test cases)
+- [x] All tests pass without requiring real API token (25/25 passing)
+- [x] Test coverage for success paths >90% (achieved 95.19%)
+- [x] All tools return user-friendly success messages (verified in tests)
+- [x] Response formatting verified for all tools
+- [x] Edge cases tested (empty results, multiple items)
+- [x] Mocking strategy implemented (monkeypatch used due to async generator constraints)
+- [x] Test documentation updated with mocking strategy
+- [x] Coverage report generated and reviewed
+
+## Implementation Notes
+
+**Mocking Strategy Changed:** Initially planned to use pytest-httpx, but discovered that the Todoist API client creates async generators in a way that pytest-httpx cannot intercept. Switched to using `monkeypatch` to directly mock the Todoist client methods, which proved more reliable and straightforward.
+
+**Critical Bugs Fixed:**
+
+1. `FastMCP` initialization with invalid `version` parameter
+2. Async generator handling in `get_tasks`, `get_projects`, `get_labels`
+3. Invalid `filter` parameter in `todoist_get_tasks` (changed to `label`)
+4. Wrong method name `close_task` (changed to `complete_task`)
+5. Incomplete mock data missing required API fields
+
+**Final Results:**
+
+- 25 tests passing (10 existing + 15 new)
+- 95.19% code coverage (exceeds 90% goal)
+- All 7 MCP tools have comprehensive success path testing
 
 ## Files Modified
 

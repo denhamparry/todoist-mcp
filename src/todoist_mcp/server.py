@@ -15,7 +15,7 @@ from todoist_api_python.api_async import TodoistAPIAsync
 load_dotenv()
 
 # Initialize MCP server
-mcp = FastMCP(name="todoist-mcp", version="0.1.0")
+mcp = FastMCP(name="todoist-mcp")
 
 # Initialize Todoist API client
 API_TOKEN = os.getenv("TODOIST_API_TOKEN")
@@ -27,19 +27,24 @@ todoist = TodoistAPIAsync(API_TOKEN)
 
 @mcp.tool()
 async def todoist_get_tasks(
-    project_id: Optional[str] = None, filter: Optional[str] = None
+    project_id: Optional[str] = None,
+    label: Optional[str] = None,
 ) -> str:
     """Get tasks from Todoist with optional filtering.
 
     Args:
         project_id: Filter tasks by project ID
-        filter: Todoist filter query (e.g., "today", "p1", "overdue")
+        label: Filter tasks by label name
 
     Returns:
         Formatted list of tasks with IDs, content, due dates, and priorities
     """
     try:
-        tasks = await todoist.get_tasks(project_id=project_id, filter=filter)
+        # Get the async generator and consume it to get the list of tasks
+        tasks = []
+        task_generator = await todoist.get_tasks(project_id=project_id, label=label)
+        async for task_batch in task_generator:
+            tasks.extend(task_batch)
 
         if not tasks:
             return "No tasks found."
@@ -148,7 +153,7 @@ async def todoist_complete_task(task_id: str) -> str:
         Success message
     """
     try:
-        success = await todoist.close_task(task_id=task_id)
+        success = await todoist.complete_task(task_id=task_id)
         if success:
             return f"✓ Task {task_id} marked as complete"
         else:
@@ -185,7 +190,11 @@ async def todoist_get_projects() -> str:
         Formatted list of projects with IDs and names
     """
     try:
-        projects = await todoist.get_projects()
+        # Get the async generator and consume it to get the list of projects
+        projects = []
+        project_generator = await todoist.get_projects()
+        async for project_batch in project_generator:
+            projects.extend(project_batch)
 
         if not projects:
             return "No projects found."
@@ -209,7 +218,11 @@ async def todoist_get_labels() -> str:
         Formatted list of labels with IDs and names
     """
     try:
-        labels = await todoist.get_labels()
+        # Get the async generator and consume it to get the list of labels
+        labels = []
+        label_generator = await todoist.get_labels()
+        async for label_batch in label_generator:
+            labels.extend(label_batch)
 
         if not labels:
             return "No labels found."
