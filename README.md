@@ -1,5 +1,7 @@
 # Todoist MCP Server
 
+[![CI](https://github.com/denhamparry/todoist-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/denhamparry/todoist-mcp/actions/workflows/ci.yml)
+
 An MCP (Model Context Protocol) server that enables AI agents to manage Todoist tasks through natural language commands.
 
 ## Features
