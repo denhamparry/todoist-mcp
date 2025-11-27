@@ -322,11 +322,74 @@ Common error scenarios:
 
 ## Rate Limits
 
-Todoist API has rate limits. The server handles rate limiting automatically but be aware:
+Todoist API has rate limits that vary by plan:
 
-- Standard plans: ~450 requests per 15 minutes
-- Premium plans: Higher limits
-- The server will return error messages if rate limits are exceeded
+- **Standard plans**: ~450 requests per 15 minutes
+- **Premium plans**: Higher limits
+
+The server includes rate limit response headers:
+
+- `X-RateLimit-Limit` - Maximum requests allowed
+- `X-RateLimit-Remaining` - Requests remaining in current window
+- `Retry-After` - Seconds to wait before retrying (on 429 responses)
+
+### Rate Limit Handling
+
+When rate limits are exceeded, the server will:
+
+1. **Detect** HTTP 429 errors automatically
+2. **Return** clear error message:
+
+   ```text
+   Error: Todoist API rate limit exceeded.
+   Please wait a few minutes and try again.
+   (Standard plans: ~450 requests per 15 minutes)
+   ```
+
+3. **Log** rate limit events for monitoring
+4. **Optionally retry** with exponential backoff (if enabled)
+
+### Enabling Automatic Retry (Optional)
+
+To enable automatic retry with exponential backoff, set these environment variables:
+
+```bash
+# Enable retry on rate limit errors
+TODOIST_ENABLE_RETRY=true
+
+# Maximum number of retry attempts (default: 3)
+TODOIST_MAX_RETRIES=3
+
+# Base delay in seconds for exponential backoff (default: 2.0)
+# Delays: 2s, 4s, 8s, 16s, etc.
+TODOIST_RETRY_BASE_DELAY=2.0
+```
+
+**MCP Configuration:**
+
+```json
+{
+  "mcpServers": {
+    "todoist": {
+      "command": "uv",
+      "args": ["run", "todoist-mcp"],
+      "env": {
+        "TODOIST_API_TOKEN": "your_token_here",
+        "TODOIST_ENABLE_RETRY": "true",
+        "TODOIST_MAX_RETRIES": "3"
+      }
+    }
+  }
+}
+```
+
+### Best Practices for Rate Limits
+
+1. **Cache results** when possible to reduce API calls
+2. **Batch operations** instead of individual calls
+3. **Monitor rate limit headers** to track usage
+4. **Enable retry logic** for production use
+5. **Space out requests** to avoid hitting limits
 
 ## Security Notes
 

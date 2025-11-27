@@ -11,6 +11,7 @@ An MCP (Model Context Protocol) server that enables AI agents to manage Todoist 
 - Natural language due dates (e.g., "tomorrow", "next Monday at 3pm")
 - Priority and label support
 - Complete task workflow integration
+- Rate limit handling with clear error messages and optional retry logic
 
 ## Installation
 

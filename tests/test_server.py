@@ -754,3 +754,240 @@ async def test_get_tasks_logs_count(mock_api_token, caplog):
 
             # Verify count logged
             assert "Retrieved 3 task(s) from Todoist" in caplog.text
+
+
+# Rate limit handling tests
+
+
+@pytest.mark.asyncio
+async def test_is_rate_limit_error_with_429(mock_api_token):
+    """Test is_rate_limit_error detects 429 status code"""
+    from todoist_mcp.server import is_rate_limit_error
+
+    error = Exception("HTTP 429: Too Many Requests")
+    assert is_rate_limit_error(error) is True
+
+
+@pytest.mark.asyncio
+async def test_is_rate_limit_error_with_rate_limit_text(mock_api_token):
+    """Test is_rate_limit_error detects 'rate limit' keyword"""
+    from todoist_mcp.server import is_rate_limit_error
+
+    error = Exception("Rate limit exceeded, please try again later")
+    assert is_rate_limit_error(error) is True
+
+
+@pytest.mark.asyncio
+async def test_is_rate_limit_error_with_too_many_requests(mock_api_token):
+    """Test is_rate_limit_error detects 'too many requests' keyword"""
+    from todoist_mcp.server import is_rate_limit_error
+
+    error = Exception("Too many requests")
+    assert is_rate_limit_error(error) is True
+
+
+@pytest.mark.asyncio
+async def test_is_rate_limit_error_with_other_error(mock_api_token):
+    """Test is_rate_limit_error returns False for non-rate-limit errors"""
+    from todoist_mcp.server import is_rate_limit_error
+
+    error = Exception("Invalid API token")
+    assert is_rate_limit_error(error) is False
+
+
+@pytest.mark.asyncio
+async def test_todoist_get_tasks_rate_limit_error(mock_api_token):
+    """Test todoist_get_tasks handles rate limit error with helpful message"""
+    from todoist_mcp.server import todoist, todoist_get_tasks
+
+    async def mock_get_tasks_rate_limited(**kwargs):
+        raise Exception("HTTP 429: Too Many Requests")
+
+    with patch.object(todoist, "get_tasks", side_effect=mock_get_tasks_rate_limited):
+        result = await todoist_get_tasks()
+
+        assert "rate limit exceeded" in result.lower()
+        assert "wait a few minutes" in result.lower()
+        assert "450 requests per 15 minutes" in result
+
+
+@pytest.mark.asyncio
+async def test_todoist_create_task_rate_limit_error(mock_api_token):
+    """Test todoist_create_task handles rate limit error"""
+    from todoist_mcp.server import todoist, todoist_create_task
+
+    with patch.object(
+        todoist, "add_task", side_effect=Exception("429 Too Many Requests")
+    ):
+        result = await todoist_create_task(content="Test")
+
+        assert "rate limit exceeded" in result.lower()
+        assert "wait a few minutes" in result.lower()
+
+
+@pytest.mark.asyncio
+async def test_todoist_update_task_rate_limit_error(mock_api_token):
+    """Test todoist_update_task handles rate limit error"""
+    from todoist_mcp.server import todoist, todoist_update_task
+
+    with patch.object(
+        todoist, "update_task", side_effect=Exception("Rate limit exceeded")
+    ):
+        result = await todoist_update_task(task_id="12345", content="Updated")
+
+        assert "rate limit exceeded" in result.lower()
+
+
+@pytest.mark.asyncio
+async def test_todoist_complete_task_rate_limit_error(mock_api_token):
+    """Test todoist_complete_task handles rate limit error"""
+    from todoist_mcp.server import todoist, todoist_complete_task
+
+    with patch.object(
+        todoist, "complete_task", side_effect=Exception("Too Many Requests")
+    ):
+        result = await todoist_complete_task(task_id="12345")
+
+        assert "rate limit exceeded" in result.lower()
+
+
+@pytest.mark.asyncio
+async def test_todoist_delete_task_rate_limit_error(mock_api_token):
+    """Test todoist_delete_task handles rate limit error"""
+    from todoist_mcp.server import todoist, todoist_delete_task
+
+    with patch.object(todoist, "delete_task", side_effect=Exception("HTTP 429")):
+        result = await todoist_delete_task(task_id="12345")
+
+        assert "rate limit exceeded" in result.lower()
+
+
+@pytest.mark.asyncio
+async def test_todoist_get_projects_rate_limit_error(mock_api_token):
+    """Test todoist_get_projects handles rate limit error"""
+    from todoist_mcp.server import todoist, todoist_get_projects
+
+    async def mock_rate_limit(**kwargs):
+        raise Exception("429: Rate limit exceeded")
+
+    with patch.object(todoist, "get_projects", side_effect=mock_rate_limit):
+        result = await todoist_get_projects()
+
+        assert "rate limit exceeded" in result.lower()
+
+
+@pytest.mark.asyncio
+async def test_todoist_get_labels_rate_limit_error(mock_api_token):
+    """Test todoist_get_labels handles rate limit error"""
+    from todoist_mcp.server import todoist, todoist_get_labels
+
+    async def mock_rate_limit(**kwargs):
+        raise Exception("rate limit exceeded")
+
+    with patch.object(todoist, "get_labels", side_effect=mock_rate_limit):
+        result = await todoist_get_labels()
+
+        assert "rate limit exceeded" in result.lower()
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_error_logs_warning(mock_api_token, caplog):
+    """Test that rate limit errors log at WARNING level"""
+    from todoist_mcp.server import todoist, todoist_get_tasks
+
+    async def mock_rate_limit(**kwargs):
+        raise Exception("429 Too Many Requests")
+
+    with patch.object(todoist, "get_tasks", side_effect=mock_rate_limit):
+        with caplog.at_level(logging.WARNING):
+            await todoist_get_tasks()
+
+            # Verify warning logged for rate limit
+            assert "Rate limit exceeded" in caplog.text
+            assert "todoist_get_tasks" in caplog.text
+
+
+# Optional retry logic tests
+
+
+@pytest.mark.asyncio
+async def test_retry_with_backoff_success_after_retry(mock_api_token):
+    """Test retry succeeds after rate limit error"""
+    from todoist_mcp.server import retry_with_backoff
+
+    call_count = 0
+
+    async def mock_func_that_fails_once():
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise Exception("429 Too Many Requests")
+        return "success"
+
+    result = await retry_with_backoff(
+        mock_func_that_fails_once, max_retries=3, base_delay=0.1
+    )
+
+    assert result == "success"
+    assert call_count == 2  # Failed once, succeeded on retry
+
+
+@pytest.mark.asyncio
+async def test_retry_with_backoff_exceeds_max_retries(mock_api_token):
+    """Test retry fails after max retries exceeded"""
+    from todoist_mcp.server import retry_with_backoff
+
+    async def mock_func_always_fails():
+        raise Exception("429 Too Many Requests")
+
+    with pytest.raises(Exception, match="429"):
+        await retry_with_backoff(mock_func_always_fails, max_retries=2, base_delay=0.1)
+
+
+@pytest.mark.asyncio
+async def test_retry_with_backoff_non_rate_limit_error(mock_api_token):
+    """Test retry doesn't retry non-rate-limit errors"""
+    from todoist_mcp.server import retry_with_backoff
+
+    call_count = 0
+
+    async def mock_func_auth_error():
+        nonlocal call_count
+        call_count += 1
+        raise Exception("401 Unauthorized")
+
+    with pytest.raises(Exception, match="401"):
+        await retry_with_backoff(mock_func_auth_error, max_retries=3, base_delay=0.1)
+
+    assert call_count == 1  # Should not retry non-rate-limit errors
+
+
+@pytest.mark.asyncio
+async def test_retry_with_backoff_exponential_delay(mock_api_token, monkeypatch):
+    """Test retry uses exponential backoff delays"""
+    import asyncio
+
+    from todoist_mcp.server import retry_with_backoff
+
+    delays = []
+    original_sleep = asyncio.sleep
+
+    async def mock_sleep(delay):
+        delays.append(delay)
+        await original_sleep(0)  # Don't actually wait in test
+
+    monkeypatch.setattr(asyncio, "sleep", mock_sleep)
+
+    call_count = 0
+
+    async def mock_func_fails_three_times():
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 3:
+            raise Exception("Rate limit exceeded")
+        return "success"
+
+    await retry_with_backoff(mock_func_fails_three_times, max_retries=3, base_delay=2.0)
+
+    # Verify exponential backoff: 2s, 4s, 8s
+    assert delays == [2.0, 4.0, 8.0]
