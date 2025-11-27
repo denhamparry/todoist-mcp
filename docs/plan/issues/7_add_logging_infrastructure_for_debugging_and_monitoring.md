@@ -1,10 +1,10 @@
 # GitHub Issue #7: Add logging infrastructure for debugging and monitoring
 
 **Issue:** [#7](https://github.com/denhamparry/todoist-mcp/issues/7)
-**Status:** Open
+**Status:** Complete
 **Labels:** enhancement
 **Priority:** Nice to have (Future improvement)
-**Date:** 2025-11-27
+**Date:** 2025-01-27
 
 ## Problem Statement
 

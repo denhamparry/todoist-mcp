@@ -100,6 +100,98 @@ Or if using `uv`:
 }
 ```
 
+## Logging
+
+The server uses structured logging to help with debugging and monitoring.
+
+### Configuration
+
+Set the log level via environment variable in your `.env` file:
+
+```bash
+LOG_LEVEL=INFO  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+```
+
+Or when configuring the MCP server:
+
+```json
+{
+  "mcpServers": {
+    "todoist": {
+      "command": "uv",
+      "args": ["run", "todoist-mcp"],
+      "env": {
+        "TODOIST_API_TOKEN": "your_token_here",
+        "LOG_LEVEL": "INFO"
+      }
+    }
+  }
+}
+```
+
+### Log Levels
+
+- **DEBUG** - Detailed diagnostic information (API calls, parameters, internal operations)
+- **INFO** - General informational messages (tool calls, successful operations, task counts)
+- **WARNING** - Warning messages (validation failures, failed operations)
+- **ERROR** - Error messages (API failures, exceptions with stack traces)
+- **CRITICAL** - Critical errors (server startup failures, configuration errors)
+
+### Log Output
+
+All logs are written to **stderr** (stdout is reserved for the MCP protocol communication).
+
+**Example log output:**
+
+```text
+2025-11-27 10:30:45 - todoist-mcp - INFO - Todoist MCP Server initialized with log level: INFO
+2025-11-27 10:30:50 - todoist-mcp - INFO - Tool called: todoist_create_task - content='Buy groceries' priority=3
+2025-11-27 10:30:51 - todoist-mcp - INFO - Task created successfully - id=12345 content='Buy groceries' priority=3
+2025-11-27 10:31:00 - todoist-mcp - INFO - Tool called: todoist_get_tasks - project_id=None label=None
+2025-11-27 10:31:01 - todoist-mcp - INFO - Retrieved 15 task(s) from Todoist
+```
+
+### Debugging
+
+When troubleshooting issues, set `LOG_LEVEL=DEBUG` for detailed diagnostic information:
+
+```bash
+# In .env file
+LOG_LEVEL=DEBUG
+```
+
+This will show:
+
+- All tool calls with full parameters
+- Todoist API interactions
+- Validation checks
+- Internal operations
+
+### Log Security
+
+The logging system is designed with security in mind:
+
+- **API tokens are never logged** - Token values are filtered from all log output
+- **Only necessary data is logged** - Task IDs, content, and metadata (not sensitive credentials)
+- **Exceptions include context** - Error logs include stack traces for debugging without exposing secrets
+
+### Viewing Logs
+
+Logs are output to stderr. To view them:
+
+**When running directly:**
+
+```bash
+uv run python -m todoist_mcp.server
+# Logs appear in terminal
+```
+
+**When using with Claude Code:**
+
+- Logs are captured by the Claude Code MCP framework
+- Check your MCP server logs in the Claude Code interface
+- Or redirect stderr to a file in your MCP configuration
+
 ## Available Tools
 
 ### Task Management

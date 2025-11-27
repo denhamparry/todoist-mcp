@@ -17,7 +17,9 @@ Coverage Goals:
 - Edge cases covered (empty lists, optional parameters)
 """
 
+import logging
 import os
+from unittest.mock import patch
 
 import pytest
 
@@ -654,3 +656,101 @@ async def test_update_task_invalid_labels(mock_api_token):
     result = await todoist_update_task(task_id="12345", labels=["", "work"])
 
     assert "Error: Label at index 0 cannot be empty" in result
+
+
+# Logging tests
+
+
+@pytest.mark.asyncio
+async def test_logger_configured_correctly(mock_api_token):
+    """Test that logger is configured with correct settings"""
+    from todoist_mcp.server import logger
+
+    # Verify logger exists
+    assert logger is not None
+    assert logger.name == "todoist-mcp"
+
+    # Verify logger level (should be INFO by default or from env)
+    assert logger.level <= logging.INFO
+
+
+@pytest.mark.asyncio
+async def test_create_task_logs_info(mock_api_token, caplog):
+    """Test that todoist_create_task logs at INFO level"""
+    from todoist_mcp.server import todoist, todoist_create_task
+
+    # Create a mock task object (not just dict)
+    class MockTask:
+        def __init__(self, task_id, content):
+            self.id = task_id
+            self.content = content
+            self.priority = 3
+
+    with patch.object(todoist, "add_task", return_value=MockTask("12345", "Test task")):
+        with caplog.at_level(logging.INFO):
+            await todoist_create_task(content="Test task")
+
+            # Verify log messages
+            assert "Tool called: todoist_create_task" in caplog.text
+            assert "Test task" in caplog.text
+            assert "Task created successfully" in caplog.text
+            assert "12345" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_validation_failure_logs_warning(mock_api_token, caplog):
+    """Test that validation failures log at WARNING level"""
+    from todoist_mcp.server import todoist_create_task
+
+    with caplog.at_level(logging.WARNING):
+        result = await todoist_create_task(content="Test", priority=5)
+
+        # Verify warning logged for validation failure
+        assert "Validation failed" in caplog.text
+        assert "Priority must be between 1 and 4" in result
+
+
+@pytest.mark.asyncio
+async def test_api_error_logs_error(mock_api_token, caplog):
+    """Test that API errors log at ERROR level with exc_info"""
+    from todoist_mcp.server import todoist, todoist_create_task
+
+    with patch.object(
+        todoist, "add_task", side_effect=Exception("API connection failed")
+    ):
+        with caplog.at_level(logging.ERROR):
+            result = await todoist_create_task(content="Test task")
+
+            # Verify error logged
+            assert "Failed to create task" in caplog.text
+            assert "API connection failed" in caplog.text
+            assert "Error creating task" in result
+
+
+@pytest.mark.asyncio
+async def test_get_tasks_logs_count(mock_api_token, caplog):
+    """Test that get_tasks logs the count of retrieved tasks"""
+    from todoist_mcp.server import todoist, todoist_get_tasks
+
+    # Create mock task objects
+    class MockTask:
+        def __init__(self, task_id, content):
+            self.id = task_id
+            self.content = content
+            self.priority = 1
+            self.due = None
+            self.labels = []
+
+    async def mock_generator():
+        yield [
+            MockTask("1", "Task 1"),
+            MockTask("2", "Task 2"),
+            MockTask("3", "Task 3"),
+        ]
+
+    with patch.object(todoist, "get_tasks", return_value=mock_generator()):
+        with caplog.at_level(logging.INFO):
+            await todoist_get_tasks()
+
+            # Verify count logged
+            assert "Retrieved 3 task(s) from Todoist" in caplog.text
