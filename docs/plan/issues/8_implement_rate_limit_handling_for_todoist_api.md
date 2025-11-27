@@ -1,7 +1,7 @@
 # GitHub Issue #8: Implement rate limit handling for Todoist API
 
 **Issue:** [#8](https://github.com/denhamparry/todoist-mcp/issues/8)
-**Status:** Open
+**Status:** Complete
 **Priority:** Nice to have - Future improvement
 **Date:** 2025-11-27
 
