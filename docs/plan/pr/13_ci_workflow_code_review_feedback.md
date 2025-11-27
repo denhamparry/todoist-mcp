@@ -1,7 +1,7 @@
 # PR #13: Add CI workflow for tests and coverage verification
 
-**PR:** [#13](https://github.com/denhamparry/todoist-mcp/pull/13) **Status:** In
-Progress **Created:** 2025-11-27 **Updated:** 2025-11-27
+**PR:** [#13](https://github.com/denhamparry/todoist-mcp/pull/13) **Status:**
+Complete **Created:** 2025-11-27 **Updated:** 2025-11-27
 
 ## Code Review Feedback Summary
 
