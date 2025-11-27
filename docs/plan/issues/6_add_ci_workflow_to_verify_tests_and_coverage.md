@@ -1,7 +1,7 @@
 # GitHub Issue #6: Add CI workflow to verify tests and coverage
 
 **Issue:** [#6](https://github.com/denhamparry/todoist-mcp/issues/6)
-**Status:** Open
+**Status:** Complete
 **Priority:** HIGH
 **Date:** 2025-11-27
 
