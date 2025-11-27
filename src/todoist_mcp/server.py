@@ -55,6 +55,11 @@ async def todoist_get_tasks(
             if task.due:
                 result += f"  Due: {task.due.string}\n"
             if task.priority > 1:
+                # Todoist priority mapping (API uses 1-4 where higher = more urgent):
+                # 1 = Normal (lowest, default - not shown)
+                # 2 = Medium (P3)
+                # 3 = High (P2)
+                # 4 = Urgent (P1, highest)
                 priority_map = {4: "P1 (Urgent)", 3: "P2 (High)", 2: "P3 (Medium)"}
                 result += (
                     f"  Priority: {priority_map.get(task.priority, task.priority)}\n"

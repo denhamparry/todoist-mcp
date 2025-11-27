@@ -136,26 +136,23 @@ async def test_todoist_get_tasks_success(mock_api_token, monkeypatch, mock_task)
     """Test todoist_get_tasks with successful API response"""
     from todoist_api_python.models import Task
 
+    from tests.conftest import create_async_gen_mock
+
     # Create Task objects from mock data
     task_obj = Task.from_dict(mock_task)
 
-    # Create an async generator that yields the task
-    async def mock_get_tasks(**kwargs):
-        async def _gen():
-            yield [task_obj]
-
-        return _gen()
-
-    # Patch the todoist client's get_tasks method
+    # Patch the todoist client's get_tasks method using helper function
     import todoist_mcp.server
 
-    monkeypatch.setattr(todoist_mcp.server.todoist, "get_tasks", mock_get_tasks)
+    monkeypatch.setattr(
+        todoist_mcp.server.todoist, "get_tasks", create_async_gen_mock([task_obj])
+    )
 
     from todoist_mcp.server import todoist_get_tasks
 
     result = await todoist_get_tasks()
 
-    # Verify response format
+    # Verify response format using partial matches for flexible content
     assert "Found 1 task(s):" in result
     assert "[12345] Test task" in result
     assert "Due: tomorrow" in result
@@ -177,6 +174,7 @@ async def test_todoist_get_tasks_empty(mock_api_token, monkeypatch):
     from todoist_mcp.server import todoist_get_tasks
 
     result = await todoist_get_tasks()
+    # Use exact match for consistent assertion style
     assert result == "No tasks found."
 
 
@@ -197,6 +195,7 @@ async def test_todoist_get_tasks_with_label(mock_api_token, monkeypatch, mock_ta
     from todoist_mcp.server import todoist_get_tasks
 
     result = await todoist_get_tasks(label="urgent")
+    # Use partial match for flexible content
     assert "Found 1 task(s):" in result
 
 
@@ -218,6 +217,7 @@ async def test_todoist_create_task_success(mock_api_token, monkeypatch, mock_tas
 
     result = await todoist_create_task(content="Test task")
 
+    # Use exact match for consistent assertion style
     assert result == "✓ Task created: Test task (ID: 12345)"
 
 
@@ -248,6 +248,7 @@ async def test_todoist_create_task_with_all_params(
         labels=["urgent", "work"],
     )
 
+    # Use partial matches for flexible content
     assert "✓ Task created:" in result
     assert "12345" in result
 
@@ -267,6 +268,7 @@ async def test_todoist_update_task_success(mock_api_token, monkeypatch):
 
     result = await todoist_update_task(task_id="12345", content="Updated task")
 
+    # Use exact match for consistent assertion style
     assert result == "✓ Task 12345 updated successfully"
 
 
@@ -287,6 +289,7 @@ async def test_todoist_update_task_multiple_fields(mock_api_token, monkeypatch):
         task_id="12345", content="Updated", priority=3, labels=["important"]
     )
 
+    # Use partial match for flexible content
     assert "✓ Task 12345 updated successfully" in result
 
 
@@ -305,6 +308,7 @@ async def test_todoist_complete_task_success(mock_api_token, monkeypatch):
 
     result = await todoist_complete_task(task_id="12345")
 
+    # Use exact match for consistent assertion style
     assert result == "✓ Task 12345 marked as complete"
 
 
@@ -323,6 +327,7 @@ async def test_todoist_delete_task_success(mock_api_token, monkeypatch):
 
     result = await todoist_delete_task(task_id="12345")
 
+    # Use exact match for consistent assertion style
     assert result == "✓ Task 12345 deleted"
 
 
@@ -344,6 +349,7 @@ async def test_todoist_get_projects_success(mock_api_token, monkeypatch, mock_pr
 
     result = await todoist_get_projects()
 
+    # Use partial matches for flexible content
     assert "Found 1 project(s):" in result
     assert "[67890] Test Project" in result
     assert "⭐ Favorite" in result
@@ -362,6 +368,7 @@ async def test_todoist_get_projects_empty(mock_api_token, monkeypatch):
     from todoist_mcp.server import todoist_get_projects
 
     result = await todoist_get_projects()
+    # Use exact match for consistent assertion style
     assert result == "No projects found."
 
 
@@ -403,6 +410,7 @@ async def test_todoist_get_projects_non_favorite(mock_api_token, monkeypatch):
 
     result = await todoist_get_projects()
 
+    # Use partial matches for flexible content
     assert "[67890] Regular Project" in result
     assert "⭐ Favorite" not in result
 
@@ -425,6 +433,7 @@ async def test_todoist_get_labels_success(mock_api_token, monkeypatch, mock_labe
 
     result = await todoist_get_labels()
 
+    # Use partial matches for flexible content
     assert "Found 1 label(s):" in result
     assert "[11111] urgent" in result
 
@@ -442,6 +451,7 @@ async def test_todoist_get_labels_empty(mock_api_token, monkeypatch):
     from todoist_mcp.server import todoist_get_labels
 
     result = await todoist_get_labels()
+    # Use exact match for consistent assertion style
     assert result == "No labels found."
 
 
@@ -486,6 +496,7 @@ async def test_todoist_get_labels_multiple(mock_api_token, monkeypatch):
 
     result = await todoist_get_labels()
 
+    # Use partial matches for flexible content
     assert "Found 3 label(s):" in result
     assert "[11111] urgent" in result
     assert "[22222] work" in result
