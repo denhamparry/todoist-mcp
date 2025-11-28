@@ -205,7 +205,8 @@ async def todoist_get_tasks(
         logger.debug("Fetching tasks from Todoist API")
         # Get the async generator and consume it to get the list of tasks
         tasks = []
-        task_generator = await todoist.get_tasks(
+        # Note: filter param supported by API but not in library type hints yet
+        task_generator = await todoist.get_tasks(  # type: ignore[call-arg]
             project_id=project_id, label=label, filter=filter
         )
         async for task_batch in task_generator:
