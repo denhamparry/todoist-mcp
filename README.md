@@ -357,6 +357,7 @@ MIT
 
 ## Support
 
+- **Troubleshooting**: [docs/troubleshooting.md](docs/troubleshooting.md)
 - **Issues**: <https://github.com/denhamparry/todoist-mcp/issues>
 - **Todoist API Docs**: <https://developer.todoist.com/rest/v2/>
 - **MCP Specification**: <https://modelcontextprotocol.io/>
