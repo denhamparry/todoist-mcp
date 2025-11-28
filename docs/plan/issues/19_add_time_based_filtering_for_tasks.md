@@ -1,7 +1,7 @@
 # GitHub Issue #19: Add time-based filtering for tasks (today, this week, overdue)
 
 **Issue:** [#19](https://github.com/denhamparry/todoist-mcp/issues/19)
-**Status:** Open
+**Status:** Complete
 **Date:** 2025-11-28
 **Priority:** Medium-High
 

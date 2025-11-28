@@ -307,7 +307,17 @@ uv run python -m todoist_mcp.server
 ### Task Management
 
 - **`todoist_get_tasks`** - Retrieve tasks with optional filtering
-  - Filter by project, label, or use Todoist filter queries
+  - **Parameters:**
+    - `project_id` (optional) - Filter by project ID
+    - `label` (optional) - Filter by label name
+    - `filter` (optional) - Todoist filter query for advanced filtering
+  - **Filter Examples:**
+    - Time-based: `filter="today"`, `filter="overdue"`, `filter="7 days"`
+    - Priority: `filter="p1"` (urgent), `filter="p2"` (high)
+    - Combined: `filter="today & p1"` (urgent tasks due today)
+    - Complex: `filter="(today | overdue) & @work"` (work tasks today or overdue)
+  - **Note:** When using `filter`, it takes precedence over `project_id`/`label`
+  - **Reference:** [Todoist Filter Syntax](https://todoist.com/help/articles/introduction-to-filters)
   - Returns formatted list with IDs, due dates, priorities, and labels
 
 - **`todoist_create_task`** - Create new tasks
