@@ -24,29 +24,29 @@ from unittest.mock import patch
 import pytest
 
 
-def test_server_requires_api_token():
+def test_server_requires_api_token(monkeypatch):
     """Test that server raises error without API token"""
+    import importlib
+
+    # First, ensure the module is imported so it exists in sys.modules
+    import todoist_mcp.server as server_module
+
     # Save original getenv
     original_getenv = os.getenv
 
-    # Mock load_dotenv to prevent loading from .env file
     # Mock os.getenv to return None only for TODOIST_API_TOKEN
     def mock_getenv(key, default=None):
         if key == "TODOIST_API_TOKEN":
             return None
         return original_getenv(key, default)
 
-    with (
-        patch("todoist_mcp.server.load_dotenv"),
-        patch("todoist_mcp.server.os.getenv", side_effect=mock_getenv),
-    ):
-        with pytest.raises(ValueError, match="TODOIST_API_TOKEN"):
-            # This import will trigger the ValueError
-            import importlib
+    # Apply patches using monkeypatch
+    monkeypatch.setattr("todoist_mcp.server.load_dotenv", lambda: None)
+    monkeypatch.setattr("todoist_mcp.server.os.getenv", mock_getenv)
 
-            import todoist_mcp.server as server_module
-
-            importlib.reload(server_module)
+    # Now reload the module with the patches in place
+    with pytest.raises(ValueError, match="TODOIST_API_TOKEN"):
+        importlib.reload(server_module)
 
 
 def test_server_initializes_with_token(mock_api_token):
