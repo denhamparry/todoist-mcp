@@ -129,20 +129,6 @@ def validate_non_empty_string(value: str, param_name: str) -> Optional[str]:
     return None
 
 
-def validate_filter(filter_query: Optional[str]) -> Optional[str]:
-    """Validate filter parameter (non-empty string if provided).
-
-    Args:
-        filter_query: Todoist filter query to validate
-
-    Returns:
-        Error message if invalid, None if valid
-    """
-    if filter_query is not None and (not filter_query or not filter_query.strip()):
-        return "Error: Filter query cannot be empty"
-    return None
-
-
 def is_rate_limit_error(error: Exception) -> bool:
     """Check if an exception is a rate limit error (HTTP 429).
 
@@ -170,30 +156,23 @@ def is_rate_limit_error(error: Exception) -> bool:
 async def todoist_get_tasks(
     project_id: Optional[str] = None,
     label: Optional[str] = None,
-    filter: Optional[str] = None,
 ) -> str:
     """Get tasks from Todoist with optional filtering.
 
     Args:
         project_id: Filter tasks by project ID
         label: Filter tasks by label name
-        filter: Todoist filter query (e.g., "today", "overdue", "7 days")
-                See: https://todoist.com/help/articles/introduction-to-filters
-                Note: When provided, filter takes precedence over project_id/label
 
     Returns:
         Formatted list of tasks with IDs, content, due dates, and priorities
     """
     logger.info(
         f"Tool called: todoist_get_tasks - "
-        f"project_id={project_id!r} label={label!r} filter={filter!r}"
+        f"project_id={project_id!r} label={label!r}"
     )
 
     # Validation
     if error := validate_project_id(project_id):
-        logger.warning(f"Validation failed in todoist_get_tasks: {error}")
-        return error
-    if error := validate_filter(filter):
         logger.warning(f"Validation failed in todoist_get_tasks: {error}")
         return error
     if label is not None and (not label or not label.strip()):
@@ -205,10 +184,7 @@ async def todoist_get_tasks(
         logger.debug("Fetching tasks from Todoist API")
         # Get the async generator and consume it to get the list of tasks
         tasks = []
-        # Note: filter param supported by API but not in library type hints yet
-        task_generator = await todoist.get_tasks(  # type: ignore[call-arg]
-            project_id=project_id, label=label, filter=filter
-        )
+        task_generator = await todoist.get_tasks(project_id=project_id, label=label)
         async for task_batch in task_generator:
             tasks.extend(task_batch)
 
