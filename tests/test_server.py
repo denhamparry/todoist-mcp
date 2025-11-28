@@ -24,11 +24,11 @@ from unittest.mock import patch
 import pytest
 
 
-def test_server_requires_api_token(monkeypatch):
+def test_server_requires_api_token(mock_api_token, monkeypatch):
     """Test that server raises error without API token"""
     import importlib
 
-    # First, ensure the module is imported so it exists in sys.modules
+    # First, import the module with a valid token (from mock_api_token fixture)
     import todoist_mcp.server as server_module
 
     # Save original getenv
