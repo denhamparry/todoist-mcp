@@ -240,6 +240,8 @@ Ask Claude Code:
 
 ### Running Tests
 
+**Unit Tests** (default - no API token required):
+
 ```bash
 # Using uv
 uv run pytest
@@ -250,6 +252,30 @@ pytest
 # With coverage report
 pytest --cov=src/todoist_mcp --cov-report=html
 ```
+
+**Integration Tests** (requires real Todoist API token):
+
+Integration tests make real API calls to Todoist and require additional setup.
+See [Integration Testing Guide](docs/integration-testing.md) for detailed
+instructions.
+
+```bash
+# Run integration tests
+pytest tests/test_integration.py -m integration -v
+
+# Run all tests (unit + integration)
+pytest -v
+```
+
+**Important:** Integration tests:
+
+- Require `TODOIST_API_TOKEN` environment variable
+- Make real API calls and create/delete actual tasks
+- Should use a dedicated test account and project
+- Are not run in CI/CD (manual only)
+
+For complete setup instructions, troubleshooting, and best practices, see the
+[Integration Testing Guide](docs/integration-testing.md).
 
 ### Code Quality
 
