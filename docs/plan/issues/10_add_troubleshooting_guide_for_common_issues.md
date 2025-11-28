@@ -1,7 +1,7 @@
 # GitHub Issue #10: Add troubleshooting guide for common issues
 
 **Issue:** [#10](https://github.com/denhamparry/todoist-mcp/issues/10)
-**Status:** Open
+**Status:** Complete
 **Labels:** documentation
 **Date:** 2025-11-28
 
