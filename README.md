@@ -69,7 +69,64 @@ cp .env.example .env
 
 ## Usage with Claude Code
 
-Add the following to your Claude Code MCP settings configuration:
+### Recommended: Using CLI (Easiest)
+
+The `claude mcp add` command automatically configures the MCP server for you. This is the easiest and recommended method.
+
+#### Using uv (Recommended)
+
+```bash
+claude mcp add --transport stdio todoist \
+  --env TODOIST_API_TOKEN=your_token_here \
+  --env LOG_LEVEL=INFO \
+  -- uv run --directory /path/to/todoist-mcp todoist-mcp
+```
+
+Replace `/path/to/todoist-mcp` with the actual path where you cloned this repository.
+
+**Example:**
+
+```bash
+claude mcp add --transport stdio todoist \
+  --env TODOIST_API_TOKEN=abc123xyz \
+  --env LOG_LEVEL=INFO \
+  -- uv run --directory /Users/lewis/git/todoist-mcp todoist-mcp
+```
+
+#### Using System Python
+
+If you prefer not to use `uv`, you can use Python directly:
+
+```bash
+claude mcp add --transport stdio todoist \
+  --env TODOIST_API_TOKEN=your_token_here \
+  --env LOG_LEVEL=INFO \
+  -- python -m todoist_mcp.server
+```
+
+**Note:** When using system Python, ensure you've activated the virtual environment first, or provide the full path to the Python interpreter in your project's virtual environment.
+
+#### Verification
+
+After running the command, verify the server is configured correctly:
+
+```bash
+claude mcp list
+```
+
+You should see `todoist` in the list of configured MCP servers with a status indicator showing it's ready.
+
+### Alternative: Manual Configuration
+
+For advanced users or if you need to troubleshoot, you can manually edit the Claude Code MCP configuration file.
+
+**Location:**
+
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Linux: `~/.config/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Add the following to your MCP settings:
 
 ```json
 {
@@ -92,14 +149,57 @@ Or if using `uv`:
   "mcpServers": {
     "todoist": {
       "command": "uv",
-      "args": ["run", "todoist-mcp"],
+      "args": ["run", "--directory", "/path/to/todoist-mcp", "todoist-mcp"],
       "env": {
-        "TODOIST_API_TOKEN": "your_token_here"
+        "TODOIST_API_TOKEN": "your_token_here",
+        "LOG_LEVEL": "INFO"
       }
     }
   }
 }
 ```
+
+### Troubleshooting Setup
+
+**Issue: "Failed to connect" error**
+
+If you see `✗ Failed to connect` after running `claude mcp add`:
+
+1. **Check the command syntax** - Ensure you included `run` and the script name:
+   - ✓ Correct: `-- uv run --directory /path/to/todoist-mcp todoist-mcp`
+   - ✗ Wrong: `-- uv --directory /path/to/todoist-mcp`
+
+2. **Verify the path** - Make sure the directory path is absolute and correct:
+
+   ```bash
+   ls -la /path/to/todoist-mcp/pyproject.toml  # Should exist
+   ```
+
+3. **Test the server manually** - Run the server directly to check for errors:
+
+   ```bash
+   cd /path/to/todoist-mcp
+   uv run todoist-mcp
+   # Should start without errors (press Ctrl+C to stop)
+   ```
+
+4. **Check your API token** - Verify it's valid:
+
+   ```bash
+   # Test the token manually with curl
+   # Use your actual API token from Todoist
+   curl -H "Authorization: Bearer $TODOIST_API_TOKEN" \
+     https://api.todoist.com/rest/v2/projects
+   # Should return your projects, not 401 error
+   ```
+
+**Issue: Server not appearing in `claude mcp list`**
+
+1. **Restart Claude Code** - The configuration may need a restart to take effect
+2. **Check the configuration file manually** - Verify the JSON was written correctly
+3. **Look for syntax errors** - Ensure the JSON is valid (no trailing commas, proper quotes)
+
+For more troubleshooting help, see [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Logging
 
@@ -113,14 +213,14 @@ Set the log level via environment variable in your `.env` file:
 LOG_LEVEL=INFO  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
 ```
 
-Or when configuring the MCP server:
+Or when configuring the MCP server (manual configuration method):
 
 ```json
 {
   "mcpServers": {
     "todoist": {
       "command": "uv",
-      "args": ["run", "todoist-mcp"],
+      "args": ["run", "--directory", "/path/to/todoist-mcp", "todoist-mcp"],
       "env": {
         "TODOIST_API_TOKEN": "your_token_here",
         "LOG_LEVEL": "INFO"
@@ -128,6 +228,15 @@ Or when configuring the MCP server:
     }
   }
 }
+```
+
+When using the CLI method (`claude mcp add`), the `LOG_LEVEL` environment variable is set with the `--env` flag:
+
+```bash
+claude mcp add --transport stdio todoist \
+  --env TODOIST_API_TOKEN=your_token_here \
+  --env LOG_LEVEL=DEBUG \
+  -- uv run --directory /path/to/todoist-mcp todoist-mcp
 ```
 
 ### Log Levels
@@ -357,11 +466,12 @@ MIT
 
 ## Support
 
-- **Troubleshooting**: [docs/troubleshooting.md](docs/troubleshooting.md)
+- **Troubleshooting**: [docs/troubleshooting.md](docs/troubleshooting.md) - Setup, runtime, and MCP integration issues
 - **Issues**: <https://github.com/denhamparry/todoist-mcp/issues>
 - **Todoist API Docs**: <https://developer.todoist.com/rest/v2/>
 - **MCP Specification**: <https://modelcontextprotocol.io/>
 - **Claude Code**: <https://docs.claude.com/en/docs/claude-code>
+- **Claude MCP CLI**: <https://docs.anthropic.com/claude/docs/claude-code#mcp-servers>
 
 ## Acknowledgments
 
