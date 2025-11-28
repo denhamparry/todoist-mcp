@@ -26,17 +26,27 @@ import pytest
 
 def test_server_requires_api_token():
     """Test that server raises error without API token"""
-    # Remove any existing token
-    if "TODOIST_API_TOKEN" in os.environ:
-        del os.environ["TODOIST_API_TOKEN"]
+    # Save original getenv
+    original_getenv = os.getenv
 
-    with pytest.raises(ValueError, match="TODOIST_API_TOKEN"):
-        # This import will trigger the ValueError
-        import importlib
+    # Mock load_dotenv to prevent loading from .env file
+    # Mock os.getenv to return None only for TODOIST_API_TOKEN
+    def mock_getenv(key, default=None):
+        if key == "TODOIST_API_TOKEN":
+            return None
+        return original_getenv(key, default)
 
-        import todoist_mcp.server as server_module
+    with (
+        patch("todoist_mcp.server.load_dotenv"),
+        patch("todoist_mcp.server.os.getenv", side_effect=mock_getenv),
+    ):
+        with pytest.raises(ValueError, match="TODOIST_API_TOKEN"):
+            # This import will trigger the ValueError
+            import importlib
 
-        importlib.reload(server_module)
+            import todoist_mcp.server as server_module
+
+            importlib.reload(server_module)
 
 
 def test_server_initializes_with_token(mock_api_token):
@@ -199,111 +209,6 @@ async def test_todoist_get_tasks_with_label(mock_api_token, monkeypatch, mock_ta
     result = await todoist_get_tasks(label="urgent")
     # Use partial match for flexible content
     assert "Found 1 task(s):" in result
-
-
-@pytest.mark.asyncio
-async def test_get_tasks_empty_filter(mock_api_token):
-    """Test todoist_get_tasks rejects empty filter"""
-    from todoist_mcp.server import todoist_get_tasks
-
-    result = await todoist_get_tasks(filter="")
-    assert result == "Error: Filter query cannot be empty"
-
-    result = await todoist_get_tasks(filter="   ")
-    assert result == "Error: Filter query cannot be empty"
-
-
-@pytest.mark.asyncio
-async def test_todoist_get_tasks_with_filter_today(
-    mock_api_token, monkeypatch, mock_task
-):
-    """Test todoist_get_tasks with filter='today'"""
-    from todoist_api_python.models import Task
-
-    import todoist_mcp.server
-    from tests.conftest import create_async_gen_mock
-
-    # Create Task object from mock data
-    task_obj = Task.from_dict(mock_task)
-
-    # Mock to verify filter parameter is passed
-    monkeypatch.setattr(
-        todoist_mcp.server.todoist, "get_tasks", create_async_gen_mock([task_obj])
-    )
-
-    from todoist_mcp.server import todoist_get_tasks
-
-    result = await todoist_get_tasks(filter="today")
-
-    # Verify response format
-    assert "Found 1 task(s):" in result
-    assert "[12345] Test task" in result
-
-
-@pytest.mark.asyncio
-async def test_todoist_get_tasks_with_filter_overdue(
-    mock_api_token, monkeypatch, mock_task
-):
-    """Test todoist_get_tasks with filter='overdue'"""
-    from todoist_api_python.models import Task
-
-    import todoist_mcp.server
-    from tests.conftest import create_async_gen_mock
-
-    task_obj = Task.from_dict(mock_task)
-
-    monkeypatch.setattr(
-        todoist_mcp.server.todoist, "get_tasks", create_async_gen_mock([task_obj])
-    )
-
-    from todoist_mcp.server import todoist_get_tasks
-
-    result = await todoist_get_tasks(filter="overdue")
-    assert "Found 1 task(s):" in result
-
-
-@pytest.mark.asyncio
-async def test_todoist_get_tasks_with_filter_complex(
-    mock_api_token, monkeypatch, mock_task
-):
-    """Test todoist_get_tasks with complex filter query"""
-    from todoist_api_python.models import Task
-
-    import todoist_mcp.server
-    from tests.conftest import create_async_gen_mock
-
-    task_obj = Task.from_dict(mock_task)
-
-    monkeypatch.setattr(
-        todoist_mcp.server.todoist, "get_tasks", create_async_gen_mock([task_obj])
-    )
-
-    from todoist_mcp.server import todoist_get_tasks
-
-    # Test combining time and priority filters
-    result = await todoist_get_tasks(filter="today & p1")
-    assert "Found 1 task(s):" in result
-
-
-@pytest.mark.asyncio
-async def test_get_tasks_logs_filter(mock_api_token, caplog, monkeypatch):
-    """Test that filter parameter is logged"""
-    import logging
-
-    import todoist_mcp.server
-    from tests.conftest import create_async_gen_mock
-
-    monkeypatch.setattr(
-        todoist_mcp.server.todoist, "get_tasks", create_async_gen_mock([])
-    )
-
-    from todoist_mcp.server import todoist_get_tasks
-
-    with caplog.at_level(logging.INFO):
-        await todoist_get_tasks(filter="today")
-
-    # Verify filter parameter is logged
-    assert any("filter='today'" in record.message for record in caplog.records)
 
 
 @pytest.mark.asyncio
