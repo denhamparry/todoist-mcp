@@ -1,7 +1,7 @@
 # GitHub Issue #18: Update documentation for Claude Code MCP setup using CLI
 
 **Issue:** [#18](https://github.com/denhamparry/todoist-mcp/issues/18)
-**Status:** Open
+**Status:** Complete
 **Labels:** documentation
 **Date:** 2025-11-28
 
