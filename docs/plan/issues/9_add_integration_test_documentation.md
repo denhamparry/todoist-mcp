@@ -1,7 +1,7 @@
 # GitHub Issue #9: Add integration test documentation
 
 **Issue:** [#9](https://github.com/denhamparry/todoist-mcp/issues/9)
-**Status:** Open
+**Status:** Complete
 **Labels:** documentation
 **Date:** 2025-11-28
 
